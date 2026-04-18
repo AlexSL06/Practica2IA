@@ -10,11 +10,10 @@ using namespace std;
 // ÁREA DE IMPLEMENTACIÓN DEL ESTUDIANTE
 // =========================================================================
 
-Action ComportamientoTecnico::think(Sensores sensores) {
+Action ComportamientoTecnico::think(Sensores sensores)
+{
   Action accion = IDLE;
 
-
-  // Decisión del agente según el nivel
   switch (sensores.nivel) {
     case 0: accion = ComportamientoTecnicoNivel_0(sensores); break;
     case 1: accion = ComportamientoTecnicoNivel_1(sensores); break;
@@ -28,90 +27,297 @@ Action ComportamientoTecnico::think(Sensores sensores) {
   return accion;
 }
 
+int ComportamientoTecnico::veoCasillaInteresanteT0(char i, char c, char d, bool zaps)
+{
+  if (c == 'U') return 2;
+  else if (d == 'U') return 3;
+  else if (i == 'U') return 1;
 
-// Niveles del técnico
-Action ComportamientoTecnico::ComportamientoTecnicoNivel_0(Sensores sensores) {
-  Action accion = IDLE;
+  if (c == 'C' || c == 'D') return 2;
+  else if (d == 'C' || d == 'D') return 3;
+  else if (i == 'C' || i == 'D') return 1;
+
+  return 0;
+}
+
+int ComportamientoTecnico::veoCasillaInteresanteT1(char i, char c, char d, bool zaps)
+{
+  if (!zaps) {
+    if (c == 'D') return 2;
+    else if (d == 'D') return 3;
+    else if (i == 'D') return 1;
+  }
+  if (c == 'C') return 2;
+  else if (d == 'C') return 3;
+  else if (i == 'C') return 1;
+  else if (c == 'U') return 2;
+  else if (d == 'U') return 3;
+  else if (i == 'U') return 1;
+  else if (c == 'S') return 2;
+  else if (d == 'S') return 3;
+  else if (i == 'S') return 1;
+  else if (c == 'H') return 2;
+  else if (d == 'H') return 3;
+  else if (i == 'H') return 1;
+
+  return 0;
+}
+
+char ComportamientoTecnico::viablePorAlturaT(char casilla, int dif)
+{
+  if (abs(dif) <= 1) return casilla;
+  else return 'P';
+}
+
+// =========================================================================
+// NIVEL 0
+// =========================================================================
+Action ComportamientoTecnico::ComportamientoTecnicoNivel_0(Sensores sensores)
+{
+  Action accion;
+
+  ActualizarMapa(sensores);
+
+  if (sensores.superficie[0] == 'D') zaps = true;
+
+  if (visitas.empty()) {
+    visitas.assign(mapaResultado.size(), vector<int>(mapaResultado[0].size(), 0));
+  }
+  visitas[sensores.posF][sensores.posC]++;
+
+  ubicacion actual = {sensores.posF, sensores.posC, sensores.rumbo};
+  ubicacion pos_frente = Delante(actual);
+
+  ubicacion aux_izq = actual;
+  aux_izq.brujula = (Orientacion)(((int)aux_izq.brujula + 7) % 8);
+  ubicacion pos_izq = Delante(aux_izq);
+
+  ubicacion aux_der = actual;
+  aux_der.brujula = (Orientacion)(((int)aux_der.brujula + 1) % 8);
+  ubicacion pos_der = Delante(aux_der);
+
+  if (last_action == WALK &&
+      sensores.posF == last_f && sensores.posC == last_c) {
+    en_bloqueo = true;
+    last_action = giro_preferido;
+    return giro_preferido;
+  }
+
+  char i = viablePorAlturaT(sensores.superficie[1], sensores.cota[1] - sensores.cota[0]);
+  char c = viablePorAlturaT(sensores.superficie[2], sensores.cota[2] - sensores.cota[0]);
+  char d = viablePorAlturaT(sensores.superficie[3], sensores.cota[3] - sensores.cota[0]);
+
+  int pos = veoCasillaInteresanteT0(i, c, d, zaps);
+
+  if (sensores.superficie[0] == 'U') {
+    if (c == 'U') return WALK;
+    else if (d == 'U') return TURN_SR;
+    else if (i == 'U') return TURN_SL;
+    else return IDLE;
+  }
+
+  if (en_bloqueo && c == 'U') {
+    en_bloqueo = false;
+    en_bloqueo_U = true;
+    contador_giros++;
+    last_action = giro_preferido;
+    return giro_preferido;
+  }
+
+  if (en_bloqueo_U) {
+    if (pos == 2) {
+      en_bloqueo_U = false;
+      accion = WALK;
+    }
+    else {
+      contador_giros++;
+      accion = giro_preferido;
+    }
+    last_action = accion;
+    return accion;
+  }
+
+  if (en_bloqueo) {
+    if (pos == 2) {
+      en_bloqueo = false;
+      accion = WALK;
+    }
+    else accion = giro_preferido;
+    last_action = accion;
+    return accion;
+  }
+  else {
+    if (c == 'U') { accion = WALK; giro_defecto = false; }
+    else if (d == 'U') { accion = TURN_SR; giro_defecto = false; }
+    else if (i == 'U') { accion = TURN_SL; giro_defecto = false; }
+    else if (es_camino(sensores.superficie[1]) && (i != 'P') &&
+             visitas[pos_izq.f][pos_izq.c] < visitas[pos_frente.f][pos_frente.c]) {
+      accion = TURN_SL;
+    }
+    else if (es_camino(sensores.superficie[3]) && (d != 'P') &&
+             visitas[pos_der.f][pos_der.c] < visitas[pos_frente.f][pos_frente.c]) {
+      accion = TURN_SR;
+    }
+    else if (pos == 2) { accion = WALK; giro_defecto = false; }
+    else if (pos == 3) { accion = TURN_SR; giro_defecto = false; }
+    else if (pos == 1) { accion = TURN_SL; giro_defecto = false; }
+    else {
+      if (!giro_defecto) {
+        accion = giro_preferido;
+        giro_defecto = true;
+      }
+      else if (giro_preferido == TURN_SL) accion = TURN_SR;
+      else accion = TURN_SL;
+      contador_giros++;
+    }
+
+    if (contador_giros >= 15) {
+      giro_preferido = (giro_preferido == TURN_SL) ? TURN_SR : TURN_SL;
+      contador_giros = 0;
+    }
+  }
+
+  if (accion == WALK) {
+    cont_walk++;
+    if (cont_walk >= 5) {
+      if (walk_left) { accion = TURN_SL; walk_left = false; }
+      else { accion = TURN_SR; walk_left = true; }
+      cont_walk = 0;
+      contador_giros++;
+    }
+  }
+  else cont_walk = 0;
+
+  last_f = sensores.posF;
+  last_c = sensores.posC;
+  last_action = accion;
 
   return accion;
 }
 
-/**
- * @brief Comprueba si una celda es de tipo camino transitable.
- * @param c Carácter que representa el tipo de superficie.
- * @return true si es camino ('C'), zapatillas ('D') o meta ('U').
- */
-bool ComportamientoTecnico::es_camino(unsigned char c) const {
+bool ComportamientoTecnico::es_camino(unsigned char c) const
+{
   return (c == 'C' || c == 'D' || c == 'U');
 }
 
-
-/**
- * @brief Comportamiento reactivo del técnico para el Nivel 1.
- * @param sensores Datos actuales de los sensores.
- * @return Acción a realizar.
- */
-Action ComportamientoTecnico::ComportamientoTecnicoNivel_1(Sensores sensores) {
-  return IDLE;
+bool ComportamientoTecnico::es_camino1(unsigned char c) const
+{
+  return (c == 'C' || c == 'D' || c == 'U' || c == 'S' || c == 'H');
 }
 
-/**
- * @brief Comportamiento del técnico para el Nivel 2.
- * @param sensores Datos actuales de los sensores.
- * @return Acción a realizar.
- */
-Action ComportamientoTecnico::ComportamientoTecnicoNivel_2(Sensores sensores) {
-  return IDLE;
+// =========================================================================
+// NIVEL 1
+// =========================================================================
+Action ComportamientoTecnico::ComportamientoTecnicoNivel_1(Sensores sensores)
+{
+  Action accion;
+
+  ActualizarMapa(sensores);
+
+  if (sensores.superficie[0] == 'D') zaps = true;
+
+  if (visitas.empty()) {
+    visitas.assign(mapaResultado.size(), vector<int>(mapaResultado[0].size(), 0));
+  }
+  visitas[sensores.posF][sensores.posC]++;
+
+  ubicacion actual = {sensores.posF, sensores.posC, sensores.rumbo};
+  ubicacion pos_frente = Delante(actual);
+
+  ubicacion aux_izq = actual;
+  aux_izq.brujula = (Orientacion)(((int)aux_izq.brujula + 7) % 8);
+  ubicacion pos_izq = Delante(aux_izq);
+
+  ubicacion aux_der = actual;
+  aux_der.brujula = (Orientacion)(((int)aux_der.brujula + 1) % 8);
+  ubicacion pos_der = Delante(aux_der);
+
+  if (last_action == WALK &&
+      sensores.posF == last_f && sensores.posC == last_c) {
+    en_bloqueo = true;
+    last_action = giro_preferido;
+    return giro_preferido;
+  }
+
+  char i = viablePorAlturaT(sensores.superficie[1], sensores.cota[1] - sensores.cota[0]);
+  char c = viablePorAlturaT(sensores.superficie[2], sensores.cota[2] - sensores.cota[0]);
+  char d = viablePorAlturaT(sensores.superficie[3], sensores.cota[3] - sensores.cota[0]);
+
+  int pos = veoCasillaInteresanteT1(i, c, d, zaps);
+
+  if (en_bloqueo) {
+    if (sensores.superficie[2] != 'D' && es_camino1(sensores.superficie[2]) && sensores.superficie[2] == c) {
+      en_bloqueo = false;
+      accion = WALK;
+    }
+    else accion = giro_preferido;
+    last_action = accion;
+    return accion;
+  }
+  else {
+    if (es_camino1(sensores.superficie[1]) && (i != 'A') && (i != 'P') &&
+        visitas[pos_izq.f][pos_izq.c] < visitas[pos_frente.f][pos_frente.c]) {
+      accion = TURN_SL;
+    }
+    else if (es_camino1(sensores.superficie[3]) && (d != 'A') && (d != 'P') &&
+             visitas[pos_der.f][pos_der.c] < visitas[pos_frente.f][pos_frente.c]) {
+      accion = TURN_SR;
+    }
+    else if (es_camino1(sensores.superficie[2]) && (c != 'A') && (c != 'P') && sensores.superficie[2] == c) {
+      accion = WALK;
+    }
+    else if (pos == 2) { accion = WALK; giro_defecto = false; }
+    else if (pos == 3) { accion = TURN_SR; giro_defecto = false; }
+    else if (pos == 1) { accion = TURN_SL; giro_defecto = false; }
+    else {
+      if (!giro_defecto) {
+        accion = giro_preferido;
+        giro_defecto = true;
+      }
+      else if (giro_preferido == TURN_SL) accion = TURN_SR;
+      else accion = TURN_SL;
+      contador_giros++;
+    }
+
+    if (contador_giros >= 15) {
+      giro_preferido = (giro_preferido == TURN_SL) ? TURN_SR : TURN_SL;
+      contador_giros = 0;
+    }
+  }
+
+  if (accion == WALK) {
+    cont_walk++;
+    if (cont_walk >= 4) {
+      if (walk_left) { accion = TURN_SL; walk_left = false; }
+      else { accion = TURN_SR; walk_left = true; }
+      cont_walk = 0;
+      contador_giros++;
+    }
+  }
+  else cont_walk = 0;
+
+  last_f = sensores.posF;
+  last_c = sensores.posC;
+  last_action = accion;
+
+  return accion;
 }
 
-/**
- * @brief Comportamiento del técnico para el Nivel 3.
- * @param sensores Datos actuales de los sensores.
- * @return Acción a realizar.
- */
-Action ComportamientoTecnico::ComportamientoTecnicoNivel_3(Sensores sensores) {
-  return IDLE;
-}
-
-/**
- * @brief Comportamiento del técnico para el Nivel 4.
- * @param sensores Datos actuales de los sensores.
- * @return Acción a realizar.
- */
-Action ComportamientoTecnico::ComportamientoTecnicoNivel_4(Sensores sensores) {
-  return IDLE;
-}
-
-/**
- * @brief Comportamiento del técnico para el Nivel 5.
- * @param sensores Datos actuales de los sensores.
- * @return Acción a realizar.
- */
-Action ComportamientoTecnico::ComportamientoTecnicoNivel_5(Sensores sensores) {
-  return IDLE;
-}
-
-/**
- * @brief Comportamiento del técnico para el Nivel 6.
- * @param sensores Datos actuales de los sensores.
- * @return Acción a realizar.
- */
-Action ComportamientoTecnico::ComportamientoTecnicoNivel_6(Sensores sensores) {
-  return IDLE;
-}
-
-
-
+// =========================================================================
+// NIVELES AVANZADOS (pendientes)
+// =========================================================================
+Action ComportamientoTecnico::ComportamientoTecnicoNivel_2(Sensores sensores) { return IDLE; }
+Action ComportamientoTecnico::ComportamientoTecnicoNivel_3(Sensores sensores) { return IDLE; }
+Action ComportamientoTecnico::ComportamientoTecnicoNivel_4(Sensores sensores) { return IDLE; }
+Action ComportamientoTecnico::ComportamientoTecnicoNivel_5(Sensores sensores) { return IDLE; }
+Action ComportamientoTecnico::ComportamientoTecnicoNivel_6(Sensores sensores) { return IDLE; }
 
 // =========================================================================
 // FUNCIONES PROPORCIONADAS
 // =========================================================================
 
-/**
- * @brief Actualiza el mapaResultado y mapaCotas con la información de los sensores.
- * @param sensores Datos actuales de los sensores.
- */
-void ComportamientoTecnico::ActualizarMapa(Sensores sensores) {
+void ComportamientoTecnico::ActualizarMapa(Sensores sensores)
+{
   mapaResultado[sensores.posF][sensores.posC] = sensores.superficie[0];
   mapaCotas[sensores.posF][sensores.posC] = sensores.cota[0];
 
@@ -276,202 +482,109 @@ void ComportamientoTecnico::ActualizarMapa(Sensores sensores) {
   }
 }
 
-
-
-/**
- * @brief Determina si una casilla es transitable para el técnico.
- * En esta práctica, si el técnico tiene zapatillas, el bosque ('B') es transitable.
- * @param f Fila de la casilla.
- * @param c Columna de la casilla.
- * @param tieneZapatillas Indica si el agente posee las zapatillas.
- * @return true si la casilla es transitable.
- */
-bool ComportamientoTecnico::EsCasillaTransitableLevel0(int f, int c, bool tieneZapatillas) {
-  if (f < 0 || f >= mapaResultado.size() || c < 0 || c >= mapaResultado[0].size()) return false;
-  return es_camino(mapaResultado[f][c]);  // Solo 'C', 'S', 'D', 'U' son transitables en Nivel 0
+bool ComportamientoTecnico::EsCasillaTransitableLevel0(int f, int c, bool tieneZapatillas)
+{
+  if (f < 0 || f >= (int)mapaResultado.size() || c < 0 || c >= (int)mapaResultado[0].size()) return false;
+  return es_camino(mapaResultado[f][c]);
 }
 
-/**
- * @brief Comprueba si la casilla de delante es accesible por diferencia de altura.
- * Para el técnico: desnivel máximo siempre 1.
- * @param actual Estado actual del agente (fila, columna, orientacion).
- * @return true si el desnivel con la casilla de delante es admisible.
- */
-bool ComportamientoTecnico::EsAccesiblePorAltura(const ubicacion &actual) {
+bool ComportamientoTecnico::EsAccesiblePorAltura(const ubicacion &actual)
+{
   ubicacion del = Delante(actual);
-  if (del.f < 0 || del.f >= mapaCotas.size() || del.c < 0 || del.c >= mapaCotas[0].size()) return false;
+  if (del.f < 0 || del.f >= (int)mapaCotas.size() || del.c < 0 || del.c >= (int)mapaCotas[0].size()) return false;
   int desnivel = abs(mapaCotas[del.f][del.c] - mapaCotas[actual.f][actual.c]);
   if (desnivel > 1) return false;
   return true;
 }
 
-/**
- * @brief Devuelve la posición (fila, columna) de la casilla que hay delante del agente.
- * Calcula la casilla frontal según la orientación actual (8 direcciones).
- * @param actual Estado actual del agente (fila, columna, orientacion).
- * @return Estado con la fila y columna de la casilla de enfrente.
- */
-ubicacion ComportamientoTecnico::Delante(const ubicacion &actual) const {
+ubicacion ComportamientoTecnico::Delante(const ubicacion &actual) const
+{
   ubicacion delante = actual;
   switch (actual.brujula) {
-    case 0: delante.f--; break;                        // norte
-    case 1: delante.f--; delante.c++; break;     // noreste
-    case 2: delante.c++; break;                     // este
-    case 3: delante.f++; delante.c++; break;     // sureste
-    case 4: delante.f++; break;                        // sur
-    case 5: delante.f++; delante.c--; break;     // suroeste
-    case 6: delante.c--; break;                     // oeste
-    case 7: delante.f--; delante.c--; break;     // noroeste
+    case 0: delante.f--; break;
+    case 1: delante.f--; delante.c++; break;
+    case 2: delante.c++; break;
+    case 3: delante.f++; delante.c++; break;
+    case 4: delante.f++; break;
+    case 5: delante.f++; delante.c--; break;
+    case 6: delante.c--; break;
+    case 7: delante.f--; delante.c--; break;
   }
   return delante;
 }
 
-
-/**
- * @brief Imprime por consola la secuencia de acciones de un plan.
- *
- * @param plan  Lista de acciones del plan.
- */
 void ComportamientoTecnico::PintaPlan(const list<Action> &plan)
 {
   auto it = plan.begin();
-  while (it != plan.end())
-  {
-    if (*it == WALK)
-    {
-      cout << "W ";
-    }
-    else if (*it == JUMP)
-    {
-      cout << "J ";
-    }
-    else if (*it == TURN_SR)
-    {
-      cout << "r ";
-    }
-    else if (*it == TURN_SL)
-    {
-      cout << "l ";
-    }
-    else if (*it == COME)
-    {
-      cout << "C ";
-    }
-    else if (*it == IDLE)
-    {
-      cout << "I ";
-    }
-    else
-    {
-      cout << "-_ ";
-    }
+  while (it != plan.end()) {
+    if (*it == WALK) cout << "W ";
+    else if (*it == JUMP) cout << "J ";
+    else if (*it == TURN_SR) cout << "r ";
+    else if (*it == TURN_SL) cout << "l ";
+    else if (*it == COME) cout << "C ";
+    else if (*it == IDLE) cout << "I ";
+    else cout << "-_ ";
     it++;
   }
   cout << "( longitud " << plan.size() << ")" << endl;
 }
 
-
-
-/**
- * @brief Convierte un plan de acciones en una lista de casillas para
- *        su visualización en el mapa 2D.
- *
- * @param st    Estado de partida.
- * @param plan  Lista de acciones del plan.
- */
-void ComportamientoTecnico::VisualizaPlan(const ubicacion &st,
-                                            const list<Action> &plan)
+void ComportamientoTecnico::PintaPlan(const list<Paso> &plan)
 {
-   listaPlanCasillas.clear();
+  auto it = plan.begin();
+  while (it != plan.end()) {
+    cout << it->fil << ", " << it->col << " (" << it->op << ")\n";
+    it++;
+  }
+  cout << "( longitud " << plan.size() << ")" << endl;
+}
+
+void ComportamientoTecnico::VisualizaPlan(const ubicacion &st, const list<Action> &plan)
+{
+  listaPlanCasillas.clear();
   ubicacion cst = st;
 
   listaPlanCasillas.push_back({cst.f, cst.c, WALK});
   auto it = plan.begin();
-  while (it != plan.end())
-  {
-
-    switch (*it)
-    {
+  while (it != plan.end()) {
+    switch (*it) {
     case JUMP:
-      switch (cst.brujula)
-      {
-      case 0:
-        cst.f--;
-        break;
-      case 1:
-        cst.f--;
-        cst.c++;
-        break;
-      case 2:
-        cst.c++;
-        break;
-      case 3:
-        cst.f++;
-        cst.c++;
-        break;
-      case 4:
-        cst.f++;
-        break;
-      case 5:
-        cst.f++;
-        cst.c--;
-        break;
-      case 6:
-        cst.c--;
-        break;
-      case 7:
-        cst.f--;
-        cst.c--;
-        break;
+      switch (cst.brujula) {
+      case 0: cst.f--; break;
+      case 1: cst.f--; cst.c++; break;
+      case 2: cst.c++; break;
+      case 3: cst.f++; cst.c++; break;
+      case 4: cst.f++; break;
+      case 5: cst.f++; cst.c--; break;
+      case 6: cst.c--; break;
+      case 7: cst.f--; cst.c--; break;
       }
-      if (cst.f >= 0 && cst.f < mapaResultado.size() &&
-          cst.c >= 0 && cst.c < mapaResultado[0].size())
+      if (cst.f >= 0 && cst.f < (int)mapaResultado.size() &&
+          cst.c >= 0 && cst.c < (int)mapaResultado[0].size())
         listaPlanCasillas.push_back({cst.f, cst.c, JUMP});
     case WALK:
-      switch (cst.brujula)
-      {
-      case 0:
-        cst.f--;
-        break;
-      case 1:
-        cst.f--;
-        cst.c++;
-        break;
-      case 2:
-        cst.c++;
-        break;
-      case 3:
-        cst.f++;
-        cst.c++;
-        break;
-      case 4:
-        cst.f++;
-        break;
-      case 5:
-        cst.f++;
-        cst.c--;
-        break;
-      case 6:
-        cst.c--;
-        break;
-      case 7:
-        cst.f--;
-        cst.c--;
-        break;
+      switch (cst.brujula) {
+      case 0: cst.f--; break;
+      case 1: cst.f--; cst.c++; break;
+      case 2: cst.c++; break;
+      case 3: cst.f++; cst.c++; break;
+      case 4: cst.f++; break;
+      case 5: cst.f++; cst.c--; break;
+      case 6: cst.c--; break;
+      case 7: cst.f--; cst.c--; break;
       }
-      if (cst.f >= 0 && cst.f < mapaResultado.size() &&
-          cst.c >= 0 && cst.c < mapaResultado[0].size())
+      if (cst.f >= 0 && cst.f < (int)mapaResultado.size() &&
+          cst.c >= 0 && cst.c < (int)mapaResultado[0].size())
         listaPlanCasillas.push_back({cst.f, cst.c, WALK});
       break;
     case TURN_SR:
-      cst.brujula = (Orientacion) (( (int) cst.brujula + 1) % 8);
+      cst.brujula = (Orientacion)(((int)cst.brujula + 1) % 8);
       break;
     case TURN_SL:
-      cst.brujula = (Orientacion) (( (int) cst.brujula + 7) % 8);
+      cst.brujula = (Orientacion)(((int)cst.brujula + 7) % 8);
       break;
+    default: break;
     }
     it++;
   }
 }
-
-
