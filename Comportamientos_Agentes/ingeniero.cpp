@@ -30,18 +30,27 @@ Action ComportamientoIngeniero::think(Sensores sensores)
 
 int ComportamientoIngeniero::veoCasillaInteresanteI0(char i, char c, char d, bool zaps)
 {
-  if (c == 'U') return 2;
-  else if (d == 'U') return 3;
-  else if (i == 'U') return 1;
+  if (c == 'U') 
+    return 2;
+  else if (d == 'U') 
+    return 3;
+  else if (i == 'U') 
+    return 1;
   else if (!zaps) {
-    if (c == 'D') return 2;
-    else if (d == 'D') return 3;
-    else if (i == 'D') return 1;
+    if (c == 'D') 
+      return 2;
+    else if (d == 'D') 
+      return 3;
+    else if (i == 'D') 
+      return 1;
   }
 
-  if (c == 'C' || c == 'D') return 2;
-  else if (d == 'C' || d == 'D') return 3;
-  else if (i == 'C' || i == 'D') return 1;
+  if (c == 'C' || c == 'D') 
+    return 2;
+  else if (d == 'C' || d == 'D') 
+    return 3;
+  else if (i == 'C' || i == 'D') 
+    return 1;
 
   return 0;
 }
@@ -49,31 +58,41 @@ int ComportamientoIngeniero::veoCasillaInteresanteI0(char i, char c, char d, boo
 int ComportamientoIngeniero::veoCasillaInteresanteI1(char i, char c, char d, bool zaps)
 {
   if (!zaps) {
-    if (c == 'D') return 2;
-    else if (d == 'D') return 3;
-    else if (i == 'D') return 1;
+    if (c == 'D') 
+      return 2;
+    else if (d == 'D') 
+      return 3;
+    else if (i == 'D') 
+      return 1;
   }
 
-  if (es_camino(c)) return 2;
-  else if (es_camino(d)) return 3;
-  else if (es_camino(i)) return 1;
-  else if (c == 'S') return 2;
-  else if (d == 'S') return 3;
-  else if (i == 'S') return 1;
+  if (es_camino(c)) 
+    return 2;
+  else if (es_camino(d)) 
+    return 3;
+  else if (es_camino(i)) 
+    return 1;
+  else if (c == 'S') 
+    return 2;
+  else if (d == 'S') 
+    return 3;
+  else if (i == 'S') 
+    return 1;
 
   return 0;
 }
 
 char ComportamientoIngeniero::viablePorAlturaI(char casilla, int dif, bool zap)
 {
-  if (abs(dif) <= 1 || (abs(dif) <= 2 && zap)) return casilla;
-  else return 'P';
+  if (abs(dif) <= 1 || (abs(dif) <= 2 && zap)) 
+    return casilla;
+  else 
+    return 'P';
 }
 
 bool ComportamientoIngeniero::puedeSaltarI(const Sensores &sensores, bool tiene_zaps)
 {
-  if (sensores.agentes[2] != '_' || sensores.superficie[2] == 'M' ||
-      sensores.superficie[2] == 'P' || sensores.superficie[2] == 'B') {
+  if (sensores.agentes[2] != '_' || sensores.superficie[2] == 'M' || sensores.superficie[2] == 'P' || sensores.superficie[2] == 'B') {
     return false;
   }
 
@@ -88,9 +107,6 @@ bool ComportamientoIngeniero::puedeSaltarI(const Sensores &sensores, bool tiene_
   return true;
 }
 
-// =========================================================================
-// NIVEL 0
-// =========================================================================
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_0(Sensores sensores)
 {
   Action accion;
@@ -257,9 +273,6 @@ bool ComportamientoIngeniero::es_camino1(unsigned char c) const
   return (c == 'C' || c == 'D' || c == 'U' || c == 'S');
 }
 
-// =========================================================================
-// NIVEL 1
-// =========================================================================
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_1(Sensores sensores)
 {
   Action accion;
@@ -378,9 +391,6 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_1(Sensores sensores
   return accion;
 }
 
-// =========================================================================
-// NIVELES AVANZADOS (pendientes)
-// =========================================================================
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_2(Sensores sensores) { return IDLE; }
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_3(Sensores sensores) { return IDLE; }
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_4(Sensores sensores) { return IDLE; }
