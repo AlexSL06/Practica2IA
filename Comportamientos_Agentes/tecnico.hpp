@@ -5,6 +5,8 @@
 #include <time.h>
 #include <thread>
 #include <list>
+#include <map>
+
 
 #include "comportamientos/comportamiento.hpp"
 
@@ -14,15 +16,30 @@ struct EstadoT {
   bool operator==(const EstadoT &st) const{
     return site == st.site and zapatillas == st.zapatillas;
   }
+   bool operator<(const EstadoT &st) const {
+    if (site.f < st.site.f) return true;
+    else if (site.f == st.site.f and site.c < st.site.c) return true;
+    else if (site.f == st.site.f and site.c == st.site.c and site.brujula < st.site.brujula) return true;
+    else if (site.f == st.site.f and site.c == st.site.c and site.brujula == st.site.brujula and zapatillas < st.zapatillas) return true;
+    else return false;
+  }
 };
 struct NodoT{
  EstadoT estado;
  list<Action> secuencia;
+ int g; //coste real acumulado de energia
+ int h; //Heurística estimada a la meta
+ int f; // = g+h
 
+ // priority_queue saca el MAYOR por defecto, invertir la lógica aquí para que devuelva el de MENOR 'f'
+  bool operator<(const NodoT &node) const {
+    return f > node.f; 
+  }
+  
  bool operator==(const NodoT &node) const{
   return estado == node.estado;
  }
-
+/*  
  bool operator<(const NodoT &node) const{
   if (estado.site.f < node.estado.site.f) return true;
   else if (estado.site.f == node.estado.site.f and estado.site.c < node.estado.site.c) return true;
@@ -32,6 +49,7 @@ node.estado.site.brujula) return true;
 node.estado.site.brujula and estado.zapatillas < node.estado.zapatillas) return true;
  else return false;
  }
+ */
 };
 class ComportamientoTecnico : public Comportamiento {
 public:
@@ -236,10 +254,52 @@ private:
   bool giro_defecto;
   vector<vector<int>> visitas;
 
-  //Nivel E
+  //Nivel E, 3
   bool hayPlan;            // Indica si hay una plan que ejecutar
   list<Action> plan;       // Almacena el plan a realizar.
 
+    /**
+   * @brief Calcula la heurística optimista (Distancia de Chebyshev).
+   * @param actual Estado donde se encuentra el Técnico.
+   * @param final Estado donde está la filtración de Belkanita.
+   * @return El valor de h(n) estimado en coste de energía.
+   */
+  int Heuristica(const EstadoT &actual, const EstadoT &final) const;
+  /**
+   * @brief Evalúa si el Técnico puede moverse a la casilla que tiene enfrente.
+   * Tiene en cuenta los límites del mapa, los obstáculos (P, M) y las reglas
+   * especiales del Bosque ('B') con zapatillas. También el límite de altura (1).
+   * @param st Estado previo al movimiento.
+   * @param terreno Mapa visual de la superficie.
+   * @param altura Mapa de cotas.
+   * @return True si es físicamente posible hacer WALK.
+   */
+  bool CasillaAccesibleTecnico(const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, 
+  const std::vector<std::vector<unsigned char>> &altura) const;
+    /**
+   * @brief Calcula la energía consumida por ejecutar una acción específica.
+   * @param accion Acción que se quiere simular (WALK, TURN_SL, TURN_SR).
+   * @param st Estado desde el cual se inicia la acción.
+   * @param terreno Matriz de terreno para saber qué se está pisando.
+   * @param altura Matriz de altura para calcular los incrementos/decrementos por desnivel.
+   * @return El gasto de energía según las tablas del PDF.
+   */
+  int CosteAccionTecnico(Action accion, const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, 
+    const std::vector<std::vector<unsigned char>> &altura) const;
+
+  /**
+   * @brief Algoritmo principal de búsqueda A*.
+   * Utiliza una priority_queue para expandir siempre el nodo con menor f(n).
+   * Gestiona una lista de cerrados (explored) que guarda el menor coste 'g' 
+   * encontrado para un estado concreto.
+   * @param inicio Estado de partida.
+   * @param final Estado de destino (solo importan fila y columna).
+   * @param terreno Mapa superficial.
+   * @param altura Mapa de desniveles.
+   * @return La secuencia de acciones que consume MENOS energía.
+   */
+  std::list<Action> A_Estrella(const EstadoT &inicio, const EstadoT &final, 
+    const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
 };
 
 #endif
