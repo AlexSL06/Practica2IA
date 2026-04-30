@@ -46,6 +46,30 @@ struct NodoI {
   }
 };
 
+  struct EstadoTuberia {
+    int fila;
+    int columna;
+    int op; // Operación aplicada: -1 (DIG), 0 (Nada), 1 (RAISE)
+
+    // Operador necesario para guardar en 'explored' (set o map)
+    bool operator<(const EstadoTuberia &st) const {
+      if (fila < st.fila) return true;
+      else if (fila == st.fila && columna < st.columna) return true;
+      else if (fila == st.fila && columna == st.columna && op < st.op) return true;
+      return false;
+    }
+    bool operator==(const EstadoTuberia &st) const {
+      return fila == st.fila && columna == st.columna && op == st.op;
+    }
+  };
+
+  // Nodo para el árbol de búsqueda
+  struct NodoTuberia {
+    EstadoTuberia estado;
+    std::list<Paso> secuencia; // ¡OJO! Ahora la secuencia es de tipo 'Paso'
+  };
+
+
 class ComportamientoIngeniero : public Comportamiento {
 public:
   // =========================================================================
@@ -256,6 +280,11 @@ private:
   bool hayPlan;
   std::list<Action> plan;
 
+
+  // =========================================================================
+  // FUNCIONES PARA EL NIVEL 2
+  // =========================================================================
+
   // Funciones auxiliares para la búsqueda
   EstadoI NextCasillaIngeniero(const EstadoI &st) const;
   bool CasillaAccesibleIngeniero(const EstadoI &st, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
@@ -265,6 +294,34 @@ private:
   // Algoritmo de búsqueda óptimo para Nivel 2
   std::list<Action> B_Anchura(const EstadoI &inicio, const EstadoI &final, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
 
+
+  // =========================================================================
+  // FUNCIONES PARA EL NIVEL 4
+  // =========================================================================
+
+  /**
+   * @brief Evalúa si es posible colocar una tubería en una casilla adyacente.
+   * @param actual El estado (f, c, op) de la tubería de la que partimos.
+   * @param sig_fila La fila de la casilla adyacente ortogonal a evaluar.
+   * @param sig_col La columna de la casilla adyacente ortogonal a evaluar.
+   * @param sig_op La operación (-1, 0, 1) que INTENTAMOS aplicar en la casilla adyacente.
+   * @param terreno Mapa superficial para comprobar obstáculos y agua.
+   * @param altura Mapa de cotas.
+   * @return true si se cumplen TODAS las reglas: límites, gravedad y restricciones de terreno.
+   */
+  bool TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
+
+  /**
+   * @brief Algoritmo de búsqueda (BFS) para encontrar la red de tuberías.
+   * Explora en 4 direcciones ortogonales. Para cada dirección, intenta aplicar
+   * los 3 valores posibles de 'op' (-1, 0, 1), generando hasta 12 posibles hijos por nodo.
+   * @param inicioF Fila donde está la Belkanita.
+   * @param inicioC Columna donde está la Belkanita.
+   * @param terreno Mapa superficial.
+   * @param altura Mapa de cotas.
+   * @return Una lista de struct 'Paso' con las coordenadas y operaciones de la red.
+   */
+  std::list<Paso> PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
 };
 
 #endif

@@ -584,7 +584,132 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_2(Sensores sensores
 }
 
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_3(Sensores sensores) { return IDLE; }
-Action ComportamientoIngeniero::ComportamientoIngenieroNivel_4(Sensores sensores) { return IDLE; }
+///////////////////////////////////////////////////////////////////////
+//NIVEL 4 
+///////////////////////////////////////////////////////////////////////  
+/**
+   * @brief Evalúa si es posible colocar una tubería en una casilla adyacente.
+   * @param actual El estado (f, c, op) de la tubería de la que partimos.
+   * @param sig_fila La fila de la casilla adyacente ortogonal a evaluar.
+   * @param sig_col La columna de la casilla adyacente ortogonal a evaluar.
+   * @param sig_op La operación (-1, 0, 1) que INTENTAMOS aplicar en la casilla adyacente.
+   * @param terreno Mapa superficial para comprobar obstáculos y agua.
+   * @param altura Mapa de cotas.
+   * @return true si se cumplen TODAS las reglas: límites, gravedad y restricciones de terreno.
+   */
+bool ComportamientoIngeniero::TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, 
+const std::vector<std::vector<unsigned char>> &altura) const{
+  //limite
+  if (sig_fila < 0 || sig_fila >= terreno.size() || sig_col < 0 || sig_col >= terreno[0].size()) 
+    return false;
+  //casilla bloqueada
+  if(terreno[sig_fila][sig_col] == 'P' || terreno[sig_fila][sig_col] == 'M')
+    return false;
+  //altura
+  int altura_tuberia_actual = altura[actual.fila][actual.columna] + actual.op;
+  int altura_tuberia_siguiente = altura[sig_fila][sig_col] + sig_op;
+  // El agua fluye recto (iguales) o hacia abajo (siguiente es 1 unidad menor)
+  if(altura_tuberia_siguiente != altura_tuberia_actual && altura_tuberia_siguiente != (altura_tuberia_actual - 1)) 
+    return false;
+  //agua y altura
+  if(terreno[sig_fila][sig_col] == 'A' && sig_op != 0)
+    return false;
+  return true;
+}
+
+  /**
+   * @brief Algoritmo de búsqueda (BFS) para encontrar la red de tuberías.
+   * Explora en 4 direcciones ortogonales. Para cada dirección, intenta aplicar
+   * los 3 valores posibles de 'op' (-1, 0, 1), generando hasta 12 posibles hijos por nodo.
+   * @param inicioF Fila donde está la Belkanita.
+   * @param inicioC Columna donde está la Belkanita.
+   * @param terreno Mapa superficial.
+   * @param altura Mapa de cotas.
+   * @return Una lista de struct 'Paso' con las coordenadas y operaciones de la red.
+   */
+std::list<Paso> ComportamientoIngeniero::PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) {
+  
+  queue<NodoTuberia> frontier;
+  set<EstadoTuberia> explored; 
+  int operaciones[3] = {-1, 0, 1};
+  
+  //casilla origen
+  for (int j = 0; j < 3; j++) {
+    int o = operaciones[j];
+    
+    //si agua solo op 0 
+    if (terreno[inicioF][inicioC] == 'A' && o != 0) 
+      continue;
+    
+    EstadoTuberia e_ini = {inicioF, inicioC, o};
+    NodoTuberia n_ini;
+    n_ini.estado = e_ini;
+    n_ini.secuencia.push_back({inicioF, inicioC, o}); 
+
+    frontier.push(n_ini);
+    explored.insert(e_ini);
+  }
+
+  int posF[4] = {0, -1, 1, 0};
+  int posC[4] = {-1, 0, 0, 1};
+
+  while (!frontier.empty()) {
+    NodoTuberia nodoActual = frontier.front();
+    frontier.pop();
+
+    EstadoTuberia actual = nodoActual.estado;
+
+    // si es la meta
+    if (terreno[actual.fila][actual.columna] == 'U') {
+      return nodoActual.secuencia; 
+    }
+
+    // Generamos hijos en la 4 dir
+    for (int dir = 0; dir < 4; dir++) {
+      int sig_fila = actual.fila + posF[dir];
+      int sig_col = actual.columna + posC[dir];
+
+      for (int op_idx = 0; op_idx < 3; op_idx++) {
+        int sig_op = operaciones[op_idx];
+
+        // Cumple las reglas
+        if (TramoTuberiaValido(actual, sig_fila, sig_col, sig_op, terreno, altura)) {
+          
+          EstadoTuberia estado_hijo = {sig_fila, sig_col, sig_op};
+
+          // filtro de nodos visitados 
+          if (explored.find(estado_hijo) == explored.end()) {
+            
+            // Crear el nuevo nodo y copiar el historial de pasos
+            NodoTuberia hijo;
+            hijo.estado = estado_hijo;
+            hijo.secuencia = nodoActual.secuencia; 
+
+            // añadi ult tramo al final
+            hijo.secuencia.push_back({sig_fila, sig_col, sig_op});
+
+            // meter en la cola y marcar como visto
+            frontier.push(hijo);
+            explored.insert(estado_hijo);
+          }
+        }
+      }
+    }
+  }
+
+  // si se vacía la cola y llegamos aqui no hay camino posible
+  return std::list<Paso>(); 
+}
+Action ComportamientoIngeniero::ComportamientoIngenieroNivel_4(Sensores sensores) { 
+  if(!hayPlan){
+    list<Paso> planTuberias = PlanificarRedTuberias(sensores.BelPosF, sensores.BelPosC, mapaResultado, mapaCotas);
+    planTuberias = PlanificarRedTuberias(sensores.BelPosF, sensores.BelPosC, mapaResultado, mapaCotas);
+    
+    VisualizaRedTuberias(planTuberias);
+    hayPlan = true;
+  }
+  return IDLE;
+}
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_5(Sensores sensores) { return IDLE; }
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores) { return IDLE; }
 
