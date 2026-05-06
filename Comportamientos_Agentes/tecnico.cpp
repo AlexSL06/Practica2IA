@@ -28,6 +28,15 @@ Action ComportamientoTecnico::think(Sensores sensores)
   return accion;
 }
 
+char ComportamientoTecnico::viablePorAlturaT(char casilla, int dif)
+{
+  if (abs(dif) <= 1) return casilla;
+  else return 'P';
+}
+
+// =========================================================================
+// NIVEL 0
+// =========================================================================
 int ComportamientoTecnico::veoCasillaInteresanteT0(char i, char c, char d, bool tiene_zapatillas)
 {
   if (c == 'U') 
@@ -46,7 +55,18 @@ int ComportamientoTecnico::veoCasillaInteresanteT0(char i, char c, char d, bool 
 
   return 0;
 } 
+bool ComportamientoTecnico::es_camino(unsigned char c) const
+{
+  return (c == 'C' || c == 'D' || c == 'U');
+}
 
+/////////////////////////////////////////////////////////
+//NIVEL 1
+/////////////////////////////////////////////////////////
+bool ComportamientoTecnico::es_camino1(unsigned char c) const
+{
+  return (c == 'C' || c == 'D' || c == 'U' || c == 'S' || c == 'H');
+}
 int ComportamientoTecnico::veoCasillaInteresanteT1(char i, char c, char d, bool tiene_zapatillas)
 {
   if (!tiene_zapatillas) {
@@ -70,20 +90,16 @@ int ComportamientoTecnico::veoCasillaInteresanteT1(char i, char c, char d, bool 
   return 0;
 }
 
-char ComportamientoTecnico::viablePorAlturaT(char casilla, int dif)
-{
-  if (abs(dif) <= 1) return casilla;
-  else return 'P';
-}
-
-// =========================================================================
-// NIVEL 0
-// =========================================================================
 Action ComportamientoTecnico::ComportamientoTecnicoNivel_0(Sensores sensores)
 {
   Action accion;
 
   ActualizarMapa(sensores);
+
+  // Si ya estamos en la planta de tratamiento, nos quedamos quietos
+  if (sensores.superficie[0] == 'U') {
+    return IDLE;
+  }
 
   if (sensores.superficie[0] == 'D') tiene_zapatillas = true;
 
@@ -201,23 +217,7 @@ Action ComportamientoTecnico::ComportamientoTecnicoNivel_0(Sensores sensores)
 
   return accion;
 }
-
-bool ComportamientoTecnico::es_camino(unsigned char c) const
-{
-  return (c == 'C' || c == 'D' || c == 'U');
-}
-
-bool ComportamientoTecnico::es_camino1(unsigned char c) const
-{
-  return (c == 'C' || c == 'D' || c == 'U' || c == 'S' || c == 'H');
-}
-
-/**
- * @brief Comportamiento reactivo del técnico para el Nivel 1.
- * @param sensores Datos actuales de los sensores.
- * @return Acción a realizar.
- */
-Action ComportamientoTecnico::ComportamientoTecnicoNivel_1(Sensores sensores)
+ Action ComportamientoTecnico::ComportamientoTecnicoNivel_1(Sensores sensores)
 {
   Action accion;
 

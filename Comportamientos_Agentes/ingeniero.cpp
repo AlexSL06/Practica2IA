@@ -41,6 +41,9 @@ Action ComportamientoIngeniero::think(Sensores sensores)
   return accion;
 }
 
+/////////////////////////////////////////////////////////
+//NIVEL 0
+/////////////////////////////////////////////////////////
 int ComportamientoIngeniero::veoCasillaInteresanteI0(char i, char c, char d, bool zaps)
 {
   if (c == 'U')
@@ -68,7 +71,13 @@ int ComportamientoIngeniero::veoCasillaInteresanteI0(char i, char c, char d, boo
 
   return 0;
 }
+bool ComportamientoIngeniero::es_camino(unsigned char c) const{
+  return (c == 'C' || c == 'D' || c == 'U');
+}
 
+/////////////////////////////////////////////////////////
+//NIVEL 1
+/////////////////////////////////////////////////////////
 int ComportamientoIngeniero::veoCasillaInteresanteI1(char i, char c, char d, bool zaps)
 {
   if (!zaps)
@@ -97,32 +106,43 @@ int ComportamientoIngeniero::veoCasillaInteresanteI1(char i, char c, char d, boo
   return 0;
 }
 
-char ComportamientoIngeniero::viablePorAlturaI(char casilla, int dif, bool zap)
-{
-  if (abs(dif) <= 1 || (abs(dif) <= 2 && zap))
-    return casilla;
-  else
-    return 'P';
-}
-
 bool ComportamientoIngeniero::puedeSaltarI(const Sensores &sensores, bool tiene_zaps)
 {
-  if (sensores.agentes[2] != '_' || sensores.superficie[2] == 'M' || sensores.superficie[2] == 'P' || sensores.superficie[2] == 'B')
-  {
+  // 1. Comprobar si la casilla intermedia está ocupada o es intransitable
+  if (sensores.agentes[2] != '_' || sensores.superficie[2] == 'M' || 
+      sensores.superficie[2] == 'P' || sensores.superficie[2] == 'B') {
     return false;
   }
 
-  if (!es_camino(sensores.superficie[6]))
-  {
+  // 2. REGLA DEL PDF: La altura de la casilla intermedia NO puede ser superior a la inicial
+  if (sensores.cota[2] > sensores.cota[0]) {
     return false;
   }
 
+  // 3. Comprobar si la casilla final de aterrizaje es un camino válido
+  if (!es_camino(sensores.superficie[6])) {
+    return false;
+  }
+
+  // 4. Comprobar el límite de altura final respecto al origen
   int diff_altura = abs(sensores.cota[6] - sensores.cota[0]);
-  int limite = tiene_zaps ? 3 : 2;
-  if (diff_altura >= limite)
+  int limite = tiene_zaps ? 2 : 1; // <= 2 con zapatillas, <= 1 sin zapatillas
+
+  if (diff_altura > limite) {
     return false;
+  }
 
   return true;
+}
+
+char ComportamientoIngeniero::viablePorAlturaI(char casilla, int dif, bool zap)
+{
+  // Corregido para mayor legibilidad siguiendo el PDF
+  if (abs(dif) <= 1 || (abs(dif) <= 2 && zap)) {
+    return casilla;
+  } else {
+    return 'P';
+  }
 }
 
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_0(Sensores sensores)
@@ -130,6 +150,11 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_0(Sensores sensores
   Action accion;
 
   ActualizarMapa(sensores);
+
+  // Si ya estamos en la planta de tratamiento, nos quedamos quietos
+  if (sensores.superficie[0] == 'U') {
+    return IDLE;
+  }
 
   if (sensores.superficie[0] == 'D')
     tiene_zapatillas = true;
@@ -347,10 +372,6 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_0(Sensores sensores
   return accion;
 }
 
-bool ComportamientoIngeniero::es_camino(unsigned char c) const
-{
-  return (c == 'C' || c == 'D' || c == 'U');
-}
 
 bool ComportamientoIngeniero::es_camino1(unsigned char c) const
 {

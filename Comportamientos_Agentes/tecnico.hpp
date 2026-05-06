@@ -62,7 +62,10 @@ public:
    * @brief Constructor para niveles 0, 1 y 6 (sin mapa completo)
    * @param size Tamaño del mapa (si es 0, se inicializa más tarde)
    */
-
+  /**
+   * @brief Constructor para niveles 0, 1 y 6 (sin mapa completo)
+   * @param size Tamaño del mapa (si es 0, se inicializa más tarde)
+   */
   ComportamientoTecnico(unsigned int size = 0) : Comportamiento(size) {
     tiene_zapatillas = false;
     last_action = IDLE;
@@ -76,7 +79,11 @@ public:
     giro_defecto = false;
     cont_walk = 0;
   }
-
+  /**
+   * @brief Constructor para niveles 2, 3, 4 y 5 (con mapa completo conocido)
+   * @param mapaR Mapa de terreno conocido
+   * @param mapaC Mapa de cotas conocido
+   */
   /**
    * @brief Constructor para niveles 2, 3, 4 y 5 (con mapa completo conocido)
    * @param mapaR Mapa de terreno conocido
@@ -85,7 +92,6 @@ public:
   ComportamientoTecnico(std::vector<std::vector<unsigned char>> mapaR,
                        std::vector<std::vector<unsigned char>> mapaC):
                        Comportamiento(mapaR, mapaC) {
-    // Inicializar Variables de Estado
     hayPlan = false;  
     tiene_zapatillas = false;
     estado_asistencia = 0;
@@ -103,10 +109,22 @@ public:
   // =========================================================================
   // ÁREA DE IMPLEMENTACIÓN DEL ESTUDIANTE
   // =========================================================================
-
-  bool es_camino1(unsigned char c) const;
+  /////////////////////////////////////////////////////////
+  //NIVEL 0
+  /////////////////////////////////////////////////////////
   int veoCasillaInteresanteT0(char i, char c, char d, bool tiene_zapatillas);
+
+  /////////////////////////////////////////////////////////
+  //NIVEL 1
+  /////////////////////////////////////////////////////////
+  bool es_camino1(unsigned char c) const;
   int veoCasillaInteresanteT1(char i, char c, char d, bool tiene_zapatillas);
+  
+  /////////////////////////////////////////////////////////
+  //NIVEL 0 Y 1
+  /////////////////////////////////////////////////////////
+  char viablePorAlturaT(char casilla, int dif);
+
   list<Action> B_Anchura(const EstadoT &inicio, const EstadoT &final,
                                               const vector<vector<unsigned char>> &terreno,
                                               const vector<vector<unsigned char>> &altura);
@@ -114,8 +132,6 @@ public:
   list<Action> B_Anchura_V2(const EstadoT &inicio, const EstadoT &final,
                                                  const vector<vector<unsigned char>> &terreno,
                                                  const vector<vector<unsigned char>> &altura);
-  
-  char viablePorAlturaT(char casilla, int dif);
 
 /**
  * @brief Comportamiento del técnico para el Nivel 0.
@@ -243,7 +259,9 @@ private:
   // =========================================================================
   // VARIABLES DE ESTADO
   // =========================================================================
-
+  /////////////////////////////////////////////////////////
+  //NIVEL 0, 1 Y 2
+  /////////////////////////////////////////////////////////
   bool tiene_zapatillas;
   Action last_action;
   int contador_giros;
@@ -257,11 +275,15 @@ private:
   bool giro_defecto;
   vector<vector<int>> visitas;
 
-  //Nivel E, 3
+  /////////////////////////////////////////////////////////
+  //NIVEL E Y 3
+  /////////////////////////////////////////////////////////
   bool hayPlan;            // Indica si hay una plan que ejecutar
   list<Action> plan;       // Almacena el plan a realizar.
   
-  //nivel 5
+  /////////////////////////////////////////////////////////
+  //NIVEL 5
+  /////////////////////////////////////////////////////////
   int estado_asistencia;
   std::set<std::pair<int,int>> casillas_bloqueadas;
   int timer_instalacion;
@@ -277,7 +299,7 @@ private:
   // Funciones y variables copiadas del ingeniero para predecir alturas
   std::list<Paso> planTuberias;
   bool red_completada = false;
-    struct EstadoTuberia {
+  struct EstadoTuberia {
     int fila;
     int columna;
     int op; // Operación aplicada: -1 (DIG), 0 (Nada), 1 (RAISE)
@@ -306,70 +328,26 @@ private:
   bool TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
   std::list<Paso> PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
 
-    /**
-   * @brief Calcula la heurística optimista (Distancia de Chebyshev).
-   * @param actual Estado donde se encuentra el Técnico.
-   * @param final Estado donde está la filtración de Belkanita.
-   * @return El valor de h(n) estimado en coste de energía.
-   */
+
   int Heuristica(const EstadoT &actual, const EstadoT &final) const;
-  /**
-   * @brief Evalúa si el Técnico puede moverse a la casilla que tiene enfrente.
-   * Tiene en cuenta los límites del mapa, los obstáculos (P, M) y las reglas
-   * especiales del Bosque ('B') con zapatillas. También el límite de altura (1).
-   * @param st Estado previo al movimiento.
-   * @param terreno Mapa visual de la superficie.
-   * @param altura Mapa de cotas.
-   * @return True si es físicamente posible hacer WALK.
-   */
+
   bool CasillaAccesibleTecnico(const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, 
   const std::vector<std::vector<unsigned char>> &altura) const;
-    /**
-   * @brief Calcula la energía consumida por ejecutar una acción específica.
-   * @param accion Acción que se quiere simular (WALK, TURN_SL, TURN_SR).
-   * @param st Estado desde el cual se inicia la acción.
-   * @param terreno Matriz de terreno para saber qué se está pisando.
-   * @param altura Matriz de altura para calcular los incrementos/decrementos por desnivel.
-   * @return El gasto de energía según las tablas del PDF.
-   */
+
   int CosteAccionTecnico(Action accion, const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, 
     const std::vector<std::vector<unsigned char>> &altura) const;
 
-  /**
-   * @brief Algoritmo principal de búsqueda A*.
-   * Utiliza una priority_queue para expandir siempre el nodo con menor f(n).
-   * Gestiona una lista de cerrados (explored) que guarda el menor coste 'g' 
-   * encontrado para un estado concreto.
-   * @param inicio Estado de partida.
-   * @param final Estado de destino (solo importan fila y columna).
-   * @param terreno Mapa superficial.
-   * @param altura Mapa de desniveles.
-   * @return La secuencia de acciones que consume MENOS energía.
-   */
   std::list<Action> A_Estrella(const EstadoT &inicio, const EstadoT &final, 
     const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
   
-  // Funciones nivel 5 
-   /**
-   * @brief Calcula la acción de giro necesaria para pasar de una orientación
-   * actual a una orientación objetivo. (Idéntica a la del ingeniero).
-   * @param actual Orientación actual del agente.
-   * @param objetivo Orientación hacia la que queremos mirar.
-   * @return TURN_SL, TURN_SR o IDLE.
-   */
+  /////////////////////////////////////////////////////////
+  //NIVEL 5
+  /////////////////////////////////////////////////////////
   Action OrientarseHacia(Orientacion actual, Orientacion objetivo) const;
 
-  /**5
-   * @brief Deduce la orientación necesaria para mirar desde una casilla origen 
-   * hacia una casilla destino ortogonal. (Idéntica a la del ingeniero).
-   * @param origen Fila y columna donde estoy.
-   * @param destino Fila y columna a la que quiero mirar.
-   * @return La Orientacion correspondiente.
-   */
+
   Orientacion ObtenerOrientacionOrtogonal(const ubicacion &origen, const ubicacion &destino) const;
-/**
-   * @brief Calcula la casilla adyacente válida a la que debe ir el Técnico.
-   */
+
   ubicacion ElegirPosicionParaTecnico(int fila_ing, int col_ing, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
 };
 

@@ -99,7 +99,7 @@ public:
     walk_left = true;
     giro_defecto = false;
     cont_walk = 0;
-    turnos_exploracion = 0; // <-- AÑADIDO
+    turnos_exploracion = 0; 
   }
 
   /**
@@ -110,7 +110,6 @@ public:
  ComportamientoIngeniero(std::vector<std::vector<unsigned char>> mapaR, 
                          std::vector<std::vector<unsigned char>> mapaC): 
                          Comportamiento(mapaR, mapaC) {
-    // Inicializar Variables de Estado
     hayPlan = false;
     tiene_zapatillas = false;
     last_action = IDLE;
@@ -141,9 +140,21 @@ public:
   // =========================================================================
   // ÁREA DE IMPLEMENTACIÓN DEL ESTUDIANTE
   // =========================================================================
-  bool es_camino1(unsigned char c) const;
+  /////////////////////////////////////////////////////////
+  //NIVEL 0
+  /////////////////////////////////////////////////////////
+  bool es_camino(unsigned char c) const;
   int veoCasillaInteresanteI0(char i, char c, char d, bool tiene_zapatillas);
+
+  /////////////////////////////////////////////////////////
+  //NIVEL 1
+  /////////////////////////////////////////////////////////
+  bool es_camino1(unsigned char c) const;
   int veoCasillaInteresanteI1(char i, char c, char d, bool tiene_zapatillas);
+
+  /////////////////////////////////////////////////////////
+  //NIVEL 0 Y 1
+  /////////////////////////////////////////////////////////
   char viablePorAlturaI(char casilla, int dif, bool tiene_zapatillas);
   bool puedeSaltarI(const Sensores &sensores, bool tiene_zapatillas);
 
@@ -233,8 +244,6 @@ protected:
    */
   ubicacion Delante(const ubicacion &actual) const;
 
-  bool es_camino(unsigned char c) const;
-
   /**
  * @brief Imprime por consola la secuencia de acciones de un plan para un agente.
  * @param plan  Lista de acciones del plan.
@@ -270,7 +279,9 @@ private:
   // =========================================================================
   // VARIABLES DE ESTADO (PUEDEN SER EXTENDIDAS POR EL ALUMNO)
   // =========================================================================
-  //nivel 0,1
+  /////////////////////////////////////////////////////////
+  //NIVEL 0, 1 Y 2
+  /////////////////////////////////////////////////////////
   int contador_giros;
   int cont_walk;
   bool walk_left;
@@ -282,8 +293,6 @@ private:
   bool en_bloqueo_U;
   bool giro_defecto;
   vector<vector<int>> visitas;
-
-  //nivel 0 1 2 
   bool tiene_zapatillas;
   Action last_action;
 
