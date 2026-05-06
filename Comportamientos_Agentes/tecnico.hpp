@@ -293,9 +293,15 @@ private:
       return fila == st.fila && columna == st.columna && op == st.op;
     }
   };
-  struct NodoTuberia {
+ struct NodoTuberia {
     EstadoTuberia estado;
-    std::list<Paso> secuencia; // ¡OJO! Ahora la secuencia es de tipo 'Paso'
+    std::list<Paso> secuencia; 
+    int costo; // NUEVO: Acumulador de impacto ecológico
+    
+    // Operador para la cola de prioridad (el de MENOR costo sale primero)
+    bool operator<(const NodoTuberia &otro) const {
+      return costo > otro.costo;
+    }
   };
   bool TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
   std::list<Paso> PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);

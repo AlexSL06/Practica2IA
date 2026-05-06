@@ -594,6 +594,7 @@ int ComportamientoTecnico::Heuristica(const EstadoT &actual, const EstadoT &fina
   int dif_col = std::abs(actual.site.c - final.site.c);
   return std::max(dif_fila, dif_col)  ;
 }
+/*
 bool ComportamientoTecnico::CasillaAccesibleTecnico(const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const{
     EstadoT next = NextCasillaTécnico(st);
   
@@ -619,7 +620,7 @@ bool ComportamientoTecnico::CasillaAccesibleTecnico(const EstadoT &st, const std
 
     return true;
   }
-
+*/
 int ComportamientoTecnico::CosteAccionTecnico(Action accion, const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, 
   const std::vector<std::vector<unsigned char>> &altura) const{
       unsigned char terreno_actual = terreno[st.site.f][st.site.c];
@@ -844,6 +845,7 @@ ubicacion ComportamientoTecnico::ElegirPosicionParaTecnico(int fila_ing, int col
   }
   return pos;
 }
+/*
 bool ComportamientoTecnico::TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno,
                                                  const std::vector<std::vector<unsigned char>> &altura) const
 {
@@ -864,7 +866,7 @@ bool ComportamientoTecnico::TramoTuberiaValido(const EstadoTuberia &actual, int 
     return false;
   return true;
 }
-
+*/
 /**
  * @brief Algoritmo de búsqueda (BFS) para encontrar la red de tuberías.
  * Explora en 4 direcciones ortogonales. Para cada dirección, intenta aplicar
@@ -877,17 +879,17 @@ bool ComportamientoTecnico::TramoTuberiaValido(const EstadoTuberia &actual, int 
  */
 std::list<Paso> ComportamientoTecnico::PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura)
 {
-
-  queue<NodoTuberia> frontier;
-  set<EstadoTuberia> explored;
+  // CAMBIO: Usamos priority_queue para minimizar el impacto ecológico
+  priority_queue<NodoTuberia> frontier;
+  map<EstadoTuberia, int> explored; // Ahora guarda el costo mínimo con el que se llegó
   int operaciones[3] = {-1, 0, 1};
 
-  // casilla origen
+  // Casilla origen
   for (int j = 0; j < 3; j++)
   {
     int o = operaciones[j];
 
-    // si agua solo op 0
+    // Si es agua, solo operación 0
     if (terreno[inicioF][inicioC] == 'A' && o != 0)
       continue;
 
@@ -896,8 +898,31 @@ std::list<Paso> ComportamientoTecnico::PlanificarRedTuberias(int inicioF, int in
     n_ini.estado = e_ini;
     n_ini.secuencia.push_back({inicioF, inicioC, o});
 
+    // --- CÁLCULO DE IMPACTO INICIAL SEGÚN PDF ---
+    int costo = 0;
+    unsigned char sup = terreno[inicioF][inicioC];
+    if (sup == 'A') costo = 50;
+    else if (sup == 'H') costo = 45;
+    else if (sup == 'S') costo = 25;
+    else if (sup == 'C' || sup == 'U' || sup == 'D' || sup == 'X') costo = 15;
+    else costo = 30; 
+
+    if (o == 1) { // RAISE
+      if (sup == 'H') costo += 55;
+      else if (sup == 'S') costo += 30;
+      else if (sup == 'C' || sup == 'U' || sup == 'D' || sup == 'X') costo += 10;
+      else costo += 40;
+    } else if (o == -1) { // DIG
+      if (sup == 'H') costo += 65;
+      else if (sup == 'S') costo += 40;
+      else if (sup == 'C' || sup == 'U' || sup == 'D' || sup == 'X') costo += 25;
+      else costo += 50;
+    }
+    
+    n_ini.costo = costo;
+
     frontier.push(n_ini);
-    explored.insert(e_ini);
+    explored[e_ini] = costo;
   }
 
   int posF[4] = {0, -1, 1, 0};
@@ -905,18 +930,22 @@ std::list<Paso> ComportamientoTecnico::PlanificarRedTuberias(int inicioF, int in
 
   while (!frontier.empty())
   {
-    NodoTuberia nodoActual = frontier.front();
+    NodoTuberia nodoActual = frontier.top();
     frontier.pop();
 
     EstadoTuberia actual = nodoActual.estado;
 
-    // si es la meta
+    // Al usar priority_queue, la primera meta que sacamos es GARANTIZADO 
+    // la de menor impacto ecológico de todo el mapa.
     if (terreno[actual.fila][actual.columna] == 'U')
     {
       return nodoActual.secuencia;
     }
 
-    // Generamos hijos en la 4 dir
+    // Si ya habíamos encontrado un camino más barato a este estado, lo ignoramos
+    if (explored[actual] < nodoActual.costo) continue;
+
+    // Generamos hijos en las 4 direcciones
     for (int dir = 0; dir < 4; dir++)
     {
       int sig_fila = actual.fila + posF[dir];
@@ -926,36 +955,56 @@ std::list<Paso> ComportamientoTecnico::PlanificarRedTuberias(int inicioF, int in
       {
         int sig_op = operaciones[op_idx];
 
-        // Cumple las reglas
         if (TramoTuberiaValido(actual, sig_fila, sig_col, sig_op, terreno, altura))
         {
-
           EstadoTuberia estado_hijo = {sig_fila, sig_col, sig_op};
 
-          // filtro de nodos visitados
-          if (explored.find(estado_hijo) == explored.end())
-          {
+          // --- CÁLCULO DE IMPACTO DEL TRAMO SEGÚN PDF ---
+          int costo_tramo = 0;
+          unsigned char sup = terreno[sig_fila][sig_col];
+          if (sup == 'A') costo_tramo = 50;
+          else if (sup == 'H') costo_tramo = 45;
+          else if (sup == 'S') costo_tramo = 25;
+          else if (sup == 'C' || sup == 'U' || sup == 'D' || sup == 'X') costo_tramo = 15;
+          else costo_tramo = 30; 
 
-            // Crear el nuevo nodo y copiar el historial de pasos
+          if (sig_op == 1) { 
+            if (sup == 'H') costo_tramo += 55;
+            else if (sup == 'S') costo_tramo += 30;
+            else if (sup == 'C' || sup == 'U' || sup == 'D' || sup == 'X') costo_tramo += 10;
+            else costo_tramo += 40;
+          } else if (sig_op == -1) { 
+            if (sup == 'H') costo_tramo += 65;
+            else if (sup == 'S') costo_tramo += 40;
+            else if (sup == 'C' || sup == 'U' || sup == 'D' || sup == 'X') costo_tramo += 25;
+            else costo_tramo += 50;
+          }
+
+          // +1 sirve como desempatador para preferir caminos más cortos si el impacto es el mismo
+          int nuevo_costo = nodoActual.costo + costo_tramo + 1;
+
+          // Si nunca hemos visitado el nodo, o si hemos encontrado una ruta de MENOR IMPACTO
+          if (explored.find(estado_hijo) == explored.end() || nuevo_costo < explored[estado_hijo])
+          {
+            explored[estado_hijo] = nuevo_costo;
+            
             NodoTuberia hijo;
             hijo.estado = estado_hijo;
             hijo.secuencia = nodoActual.secuencia;
-
-            // añadi ult tramo al final
             hijo.secuencia.push_back({sig_fila, sig_col, sig_op});
+            hijo.costo = nuevo_costo;
 
-            // meter en la cola y marcar como visto
             frontier.push(hijo);
-            explored.insert(estado_hijo);
           }
         }
       }
     }
   }
 
-  // si se vacía la cola y llegamos aqui no hay camino posible
+  // Si no hay camino
   return std::list<Paso>();
 }
+
 Action ComportamientoTecnico::ComportamientoTecnicoNivel_5(Sensores sensores)
 {
   if (sensores.superficie[0] == 'D') tiene_zapatillas = true;
@@ -1061,17 +1110,166 @@ Action ComportamientoTecnico::ComportamientoTecnicoNivel_5(Sensores sensores)
 
   return IDLE;
 }
+
+///////////////////////////////////////////////////////////////////////
+//NIVEL 6 
+/////////////////////////////////////////////////////////////////////// 
+bool ComportamientoTecnico::CasillaAccesibleTecnico(const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const {
+    EstadoT next = NextCasillaTécnico(st);
+  
+    if (next.site.f < 0 || next.site.f >= terreno.size() || next.site.c < 0 || next.site.c >= terreno[0].size()) 
+      return false;
+
+    unsigned char dest = terreno[next.site.f][next.site.c];
+    // ¡AÑADIDO dest == '?' PARA EL NIVEL 6!
+    if(dest == 'P' || dest == 'M' || dest == '?')
+      return false;
+
+    if (dest == 'B' && !st.zapatillas) 
+      return false;
+
+    if (abs(altura[next.site.f][next.site.c] - altura[st.site.f][st.site.c]) > 1) 
+      return false;
+
+    if (casillas_bloqueadas.find({next.site.f, next.site.c}) != casillas_bloqueadas.end()) {
+      return false;
+    }
+
+    return true;
+}
+
+bool ComportamientoTecnico::TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const
+{
+  if (sig_fila < 0 || sig_fila >= terreno.size() || sig_col < 0 || sig_col >= terreno[0].size())
+    return false;
+    
+  unsigned char sup = terreno[sig_fila][sig_col];
+  // ¡AÑADIDO sup == '?' PARA EL NIVEL 6!
+  if (sup == 'P' || sup == 'M' || sup == '?')
+    return false;
+    
+  int altura_tuberia_actual = altura[actual.fila][actual.columna] + actual.op;
+  int altura_tuberia_siguiente = altura[sig_fila][sig_col] + sig_op;
+  
+  if (altura_tuberia_siguiente != altura_tuberia_actual && altura_tuberia_siguiente != (altura_tuberia_actual - 1))
+    return false;
+    
+  if (sup == 'A' && sig_op != 0)
+    return false;
+    
+  return true;
+}
 /**
  * @brief Comportamiento del técnico para el Nivel 6.
  * @param sensores Datos actuales de los sensores.
  * @return Acción a realizar.
  */
-Action ComportamientoTecnico::ComportamientoTecnicoNivel_6(Sensores sensores) {
+Action ComportamientoTecnico::ComportamientoTecnicoNivel_6(Sensores sensores) 
+{
+  ActualizarMapa(sensores);
+  if (sensores.superficie[0] == 'D') tiene_zapatillas = true;
+
+  // --- ESCUCHAR LA ORDEN DEL INGENIERO ---
+  if (sensores.venpaca) {
+    // Si el ingeniero nos llama, actualizamos el objetivo inmediatamente
+    ing_f_actual = sensores.GotoF;
+    ing_c_actual = sensores.GotoC;
+
+    // El Técnico no necesita planificar la red. Simplemente busca una casilla adyacente
+    // válida respecto a la posición que le dicta el Ingeniero.
+    if (tramo_ant_f != -1) {
+      pos_objetivo_actual.f = tramo_ant_f;
+      pos_objetivo_actual.c = tramo_ant_c;
+    } else {
+      // Pasamos -1, -1 como siguiente tubería porque el técnico ignora ese dato
+      pos_objetivo_actual = ElegirPosicionParaTecnico(ing_f_actual, ing_c_actual, -1, -1, mapaResultado, mapaCotas);
+    }
+    
+    if (pos_objetivo_actual.f != -1) {
+      estado_asistencia = 1;
+      plan.clear();
+      hayPlan = false;
+    }
+  }
+
+  // --- ESTADO 0: ESTATUA / EXPLORADOR ---
+  if (estado_asistencia == 0) { 
+    // Solo explora libremente si NUNCA ha participado en la obra aún
+    if (tramo_ant_f == -1) {
+      return ComportamientoTecnicoNivel_1(sensores);
+    }
+    // Si ya es parte de la obra, debe quedarse totalmente quieto esperando órdenes
+    return IDLE; 
+  }
+
+  // --- GESTIÓN DE COLISIONES ---
+  if (sensores.choque && estado_asistencia == 1) {
+    if (sensores.agentes[2] == 'i') {
+      // Si nos chocamos con el ingeniero, esperamos.
+      if (last_action != IDLE) plan.push_front(last_action);
+      return IDLE;
+    } else {
+      plan.clear(); 
+      hayPlan = false; 
+      ubicacion frente = Delante({sensores.posF, sensores.posC, sensores.rumbo});
+      casillas_bloqueadas.insert({frente.f, frente.c}); 
+    }
+  }
+
+  // --- ESTADO 1: VIAJAR HACIA EL INGENIERO ---
+  if (estado_asistencia == 1) { 
+    if (sensores.posF == pos_objetivo_actual.f && sensores.posC == pos_objetivo_actual.c) {
+      estado_asistencia = 2;
+      casillas_bloqueadas.clear();
+    } else {
+      if (!hayPlan) {
+        EstadoT inicio = { {sensores.posF, sensores.posC, sensores.rumbo}, tiene_zapatillas};
+        EstadoT final = { {pos_objetivo_actual.f, pos_objetivo_actual.c, norte}, false};
+        plan = A_Estrella(inicio, final, mapaResultado, mapaCotas);
+        
+        if (plan.empty()) {
+          // TÁCTICA ANTI-NIEBLA: Si A* falla, giramos a la derecha. 
+          // Esto revela las casillas '?' de los lados y casi siempre desbloquea el A* en el siguiente turno.
+          return TURN_SR; 
+        } else {
+          hayPlan = true;
+        }
+      }
+      
+      if (!plan.empty()) {
+        Action act = plan.front(); 
+        plan.pop_front(); 
+        last_action = act;
+        return act;
+      }
+    }
+  }
+
+  // --- ESTADO 2: GIRAR Y SINCRONIZAR INSTALL ---
+  if (estado_asistencia == 2) { 
+    ubicacion mi_pos = {sensores.posF, sensores.posC, sensores.rumbo};
+    ubicacion pos_ing = {ing_f_actual, ing_c_actual, norte}; 
+    Orientacion ideal = ObtenerOrientacionOrtogonal(mi_pos, pos_ing);
+    
+    if (sensores.rumbo != ideal) {
+      last_action = OrientarseHacia(sensores.rumbo, ideal);
+      return last_action;
+    }
+    
+    // Si estamos mirando al ingeniero y él nos mira a nosotros (sensor enfrente activo)
+    if (sensores.enfrente) {
+      estado_asistencia = 0; // Vuelve al estado quieto.
+      tramo_ant_f = ing_f_actual;
+      tramo_ant_c = ing_c_actual;
+      last_action = INSTALL;
+      return INSTALL;        
+    }
+    // Si el ingeniero aún no está mirando, nos quedamos parados esperando pacientemente
+    return IDLE; 
+  }
+
   return IDLE;
 }
-
-
-
 // =========================================================================
 // FUNCIONES PROPORCIONADAS
 // =========================================================================

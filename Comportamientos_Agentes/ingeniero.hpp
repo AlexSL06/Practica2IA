@@ -64,9 +64,15 @@ struct NodoI {
   };
 
   // Nodo para el árbol de búsqueda
-  struct NodoTuberia {
+struct NodoTuberia {
     EstadoTuberia estado;
-    std::list<Paso> secuencia; // ¡OJO! Ahora la secuencia es de tipo 'Paso'
+    std::list<Paso> secuencia; 
+    int costo; // NUEVO: Acumulador de impacto ecológico
+    
+    // Operador para la cola de prioridad (el de MENOR costo sale primero)
+    bool operator<(const NodoTuberia &otro) const {
+      return costo > otro.costo;
+    }
   };
 
 
@@ -93,6 +99,7 @@ public:
     walk_left = true;
     giro_defecto = false;
     cont_walk = 0;
+    turnos_exploracion = 0; // <-- AÑADIDO
   }
 
   /**
@@ -110,6 +117,7 @@ public:
     estado_instalacion = 0;
     red_completada = false;    
     espera_tecnico = 0;  
+    turnos_exploracion = 0; 
   }
 
   ComportamientoIngeniero(const ComportamientoIngeniero &comport)
@@ -294,6 +302,7 @@ private:
   int tramo_ant_f = -1;
   int tramo_ant_c = -1;
   bool red_planificada = false;
+  int turnos_exploracion; // <-- ¡NUEVA VARIABLE AÑADIDA AQUÍ!
 
   // Cambiamos la firma para pasarle la fila/columna de la SIGUIENTE tubería
   ubicacion ElegirPosicionParaTecnico(int fila_ing, int col_ing, int fila_sig, int col_sig, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
