@@ -6,6 +6,8 @@
 #include <thread>
 #include <list>
 #include <map>
+#include <set>       
+#include <utility>  
 
 
 #include "comportamientos/comportamiento.hpp"
@@ -86,6 +88,7 @@ public:
     // Inicializar Variables de Estado
     hayPlan = false;  
     tiene_zapatillas = false;
+    estado_asistencia = 0;
   }
 
   ComportamientoTecnico(const ComportamientoTecnico &comport): Comportamiento(comport) {}
@@ -257,6 +260,45 @@ private:
   //Nivel E, 3
   bool hayPlan;            // Indica si hay una plan que ejecutar
   list<Action> plan;       // Almacena el plan a realizar.
+  
+  //nivel 5
+  int estado_asistencia;
+  std::set<std::pair<int,int>> casillas_bloqueadas;
+  int timer_instalacion;
+  ubicacion pos_objetivo_actual; 
+  int ing_f_actual = -1;
+  int ing_c_actual = -1;
+  int tramo_ant_f = -1;
+  int tramo_ant_c = -1;
+  bool red_planificada = false;
+
+  // Igual que en el ingeniero
+  ubicacion ElegirPosicionParaTecnico(int fila_ing, int col_ing, int fila_sig, int col_sig, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
+  // Funciones y variables copiadas del ingeniero para predecir alturas
+  std::list<Paso> planTuberias;
+  bool red_completada = false;
+    struct EstadoTuberia {
+    int fila;
+    int columna;
+    int op; // Operación aplicada: -1 (DIG), 0 (Nada), 1 (RAISE)
+
+    // Operador necesario para guardar en 'explored' (set o map)
+    bool operator<(const EstadoTuberia &st) const {
+      if (fila < st.fila) return true;
+      else if (fila == st.fila && columna < st.columna) return true;
+      else if (fila == st.fila && columna == st.columna && op < st.op) return true;
+      return false;
+    }
+    bool operator==(const EstadoTuberia &st) const {
+      return fila == st.fila && columna == st.columna && op == st.op;
+    }
+  };
+  struct NodoTuberia {
+    EstadoTuberia estado;
+    std::list<Paso> secuencia; // ¡OJO! Ahora la secuencia es de tipo 'Paso'
+  };
+  bool TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
+  std::list<Paso> PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
 
     /**
    * @brief Calcula la heurística optimista (Distancia de Chebyshev).
@@ -300,6 +342,29 @@ private:
    */
   std::list<Action> A_Estrella(const EstadoT &inicio, const EstadoT &final, 
     const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
+  
+  // Funciones nivel 5 
+   /**
+   * @brief Calcula la acción de giro necesaria para pasar de una orientación
+   * actual a una orientación objetivo. (Idéntica a la del ingeniero).
+   * @param actual Orientación actual del agente.
+   * @param objetivo Orientación hacia la que queremos mirar.
+   * @return TURN_SL, TURN_SR o IDLE.
+   */
+  Action OrientarseHacia(Orientacion actual, Orientacion objetivo) const;
+
+  /**5
+   * @brief Deduce la orientación necesaria para mirar desde una casilla origen 
+   * hacia una casilla destino ortogonal. (Idéntica a la del ingeniero).
+   * @param origen Fila y columna donde estoy.
+   * @param destino Fila y columna a la que quiero mirar.
+   * @return La Orientacion correspondiente.
+   */
+  Orientacion ObtenerOrientacionOrtogonal(const ubicacion &origen, const ubicacion &destino) const;
+/**
+   * @brief Calcula la casilla adyacente válida a la que debe ir el Técnico.
+   */
+  ubicacion ElegirPosicionParaTecnico(int fila_ing, int col_ing, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
 };
 
 #endif

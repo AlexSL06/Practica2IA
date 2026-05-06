@@ -613,6 +613,10 @@ bool ComportamientoTecnico::CasillaAccesibleTecnico(const EstadoT &st, const std
     if (abs(altura[next.site.f][next.site.c] - altura[st.site.f][st.site.c]) > 1) 
       return false;
 
+    if (casillas_bloqueadas.find({next.site.f, next.site.c}) != casillas_bloqueadas.end()) {
+      return false;
+    }
+
     return true;
   }
 
@@ -781,15 +785,282 @@ Action ComportamientoTecnico::ComportamientoTecnicoNivel_4(Sensores sensores) {
   return IDLE;
 }
 
-/**
- * @brief Comportamiento del técnico para el Nivel 5.
- * @param sensores Datos actuales de los sensores.
- * @return Acción a realizar.
- */
-Action ComportamientoTecnico::ComportamientoTecnicoNivel_5(Sensores sensores) {
-  return IDLE;
+///////////////////////////////////////////////////////////////////////
+//NIVEL 5 
+/////////////////////////////////////////////////////////////////////// 
+Action ComportamientoTecnico::OrientarseHacia(Orientacion actual, Orientacion objetivo) const{
+  if(actual == objetivo)
+    return IDLE;
+  
+  int dist = (objetivo - actual + 8 ) % 8;
+
+  if(dist <= 4)
+    return TURN_SR;
+  return TURN_SL;
 }
 
+Orientacion ComportamientoTecnico::ObtenerOrientacionOrtogonal(const ubicacion &origen, const ubicacion &destino) const{
+    if((destino.f - origen.f) == -1 && (destino.c - origen.c) == 0)
+    return norte;
+  else if((destino.f - origen.f) == 0 && (destino.c - origen.c) == 1)
+    return este;
+  else if((destino.f - origen.f) == 1 && (destino.c - origen.c) == 0)
+    return sur;
+  else
+    return oeste;
+}
+ubicacion ComportamientoTecnico::ElegirPosicionParaTecnico(int fila_ing, int col_ing, int fila_sig, int col_sig, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const {
+  ubicacion pos;
+  pos.f = -1; 
+  pos.c = -1;
+  pos.brujula = norte;
+
+  int pfila[4] = {-1, 0, 1, 0};
+  int pcol[4] = {0, 1, 0, -1};
+
+  for(int i = 0; i < 4; i++){
+    int f_ady = fila_ing + pfila[i];
+    int c_ady = col_ing + pcol[i];
+    
+    // Evitamos salir del mapa
+    if(f_ady < 0 || c_ady < 0 || f_ady >= terreno.size() || c_ady >= terreno[0].size()) continue; 
+    
+    // ¡NUEVO! EVITAMOS LA CASILLA DE LA SIGUIENTE TUBERÍA
+    if(f_ady == fila_sig && c_ady == col_sig) continue;
+    
+    unsigned char sup = terreno[f_ady][c_ady];
+    // Evitamos obstáculos
+    if(sup == 'M' || sup == 'P' || sup == 'A') continue;
+    
+    int alt_ing = altura[fila_ing][col_ing];
+    int alt_tec = altura[f_ady][c_ady];
+    
+    // Regla de altura
+    if (alt_ing > alt_tec || alt_ing < alt_tec - 1) continue;
+    
+    pos.f = f_ady;
+    pos.c = c_ady;
+    return pos;
+  }
+  return pos;
+}
+bool ComportamientoTecnico::TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno,
+                                                 const std::vector<std::vector<unsigned char>> &altura) const
+{
+  // limite
+  if (sig_fila < 0 || sig_fila >= terreno.size() || sig_col < 0 || sig_col >= terreno[0].size())
+    return false;
+  // casilla bloqueada
+  if (terreno[sig_fila][sig_col] == 'P' || terreno[sig_fila][sig_col] == 'M')
+    return false;
+  // altura
+  int altura_tuberia_actual = altura[actual.fila][actual.columna] + actual.op;
+  int altura_tuberia_siguiente = altura[sig_fila][sig_col] + sig_op;
+  // El agua fluye recto (iguales) o hacia abajo (siguientze es 1 unidad menor)
+  if (altura_tuberia_siguiente != altura_tuberia_actual && altura_tuberia_siguiente != (altura_tuberia_actual - 1))
+    return false;
+  // agua y altura
+  if (terreno[sig_fila][sig_col] == 'A' && sig_op != 0)
+    return false;
+  return true;
+}
+
+/**
+ * @brief Algoritmo de búsqueda (BFS) para encontrar la red de tuberías.
+ * Explora en 4 direcciones ortogonales. Para cada dirección, intenta aplicar
+ * los 3 valores posibles de 'op' (-1, 0, 1), generando hasta 12 posibles hijos por nodo.
+ * @param inicioF Fila donde está la Belkanita.
+ * @param inicioC Columna donde está la Belkanita.
+ * @param terreno Mapa superficial.
+ * @param altura Mapa de cotas.
+ * @return Una lista de struct 'Paso' con las coordenadas y operaciones de la red.
+ */
+std::list<Paso> ComportamientoTecnico::PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura)
+{
+
+  queue<NodoTuberia> frontier;
+  set<EstadoTuberia> explored;
+  int operaciones[3] = {-1, 0, 1};
+
+  // casilla origen
+  for (int j = 0; j < 3; j++)
+  {
+    int o = operaciones[j];
+
+    // si agua solo op 0
+    if (terreno[inicioF][inicioC] == 'A' && o != 0)
+      continue;
+
+    EstadoTuberia e_ini = {inicioF, inicioC, o};
+    NodoTuberia n_ini;
+    n_ini.estado = e_ini;
+    n_ini.secuencia.push_back({inicioF, inicioC, o});
+
+    frontier.push(n_ini);
+    explored.insert(e_ini);
+  }
+
+  int posF[4] = {0, -1, 1, 0};
+  int posC[4] = {-1, 0, 0, 1};
+
+  while (!frontier.empty())
+  {
+    NodoTuberia nodoActual = frontier.front();
+    frontier.pop();
+
+    EstadoTuberia actual = nodoActual.estado;
+
+    // si es la meta
+    if (terreno[actual.fila][actual.columna] == 'U')
+    {
+      return nodoActual.secuencia;
+    }
+
+    // Generamos hijos en la 4 dir
+    for (int dir = 0; dir < 4; dir++)
+    {
+      int sig_fila = actual.fila + posF[dir];
+      int sig_col = actual.columna + posC[dir];
+
+      for (int op_idx = 0; op_idx < 3; op_idx++)
+      {
+        int sig_op = operaciones[op_idx];
+
+        // Cumple las reglas
+        if (TramoTuberiaValido(actual, sig_fila, sig_col, sig_op, terreno, altura))
+        {
+
+          EstadoTuberia estado_hijo = {sig_fila, sig_col, sig_op};
+
+          // filtro de nodos visitados
+          if (explored.find(estado_hijo) == explored.end())
+          {
+
+            // Crear el nuevo nodo y copiar el historial de pasos
+            NodoTuberia hijo;
+            hijo.estado = estado_hijo;
+            hijo.secuencia = nodoActual.secuencia;
+
+            // añadi ult tramo al final
+            hijo.secuencia.push_back({sig_fila, sig_col, sig_op});
+
+            // meter en la cola y marcar como visto
+            frontier.push(hijo);
+            explored.insert(estado_hijo);
+          }
+        }
+      }
+    }
+  }
+
+  // si se vacía la cola y llegamos aqui no hay camino posible
+  return std::list<Paso>();
+}
+Action ComportamientoTecnico::ComportamientoTecnicoNivel_5(Sensores sensores)
+{
+  if (sensores.superficie[0] == 'D') tiene_zapatillas = true;
+
+  if (sensores.choque) {
+    plan.clear();
+    hayPlan = false; 
+    ubicacion frente = Delante({sensores.posF, sensores.posC, sensores.rumbo});
+    casillas_bloqueadas.insert({frente.f, frente.c}); 
+  }
+
+  // FASE -1: EL TÉCNICO CALCULA LA RED SOLO PARA SABER LA SIGUIENTE CASILLA
+    if (!red_planificada) {
+    planTuberias = PlanificarRedTuberias(sensores.BelPosF, sensores.BelPosC, mapaResultado, mapaCotas);
+    red_planificada = true; // ¡Marcamos que ya hemos planificado!
+    
+    if (planTuberias.empty()) {
+      red_completada = true;
+    }
+    
+    // Inicializamos su variable de tramo anterior
+    tramo_ant_f = -1;
+    tramo_ant_c = -1;
+  }
+
+  // ATENDER LLAMADA DEL INGENIERO
+  if (sensores.venpaca) {
+    ing_f_actual = sensores.GotoF;
+    ing_c_actual = sensores.GotoC;
+
+    // Quitamos la tubería actual de nuestra lista mental para ver la siguiente
+    if (!planTuberias.empty() && planTuberias.front().fil == ing_f_actual && planTuberias.front().col == ing_c_actual) {
+      planTuberias.pop_front();
+    }
+
+    // TU LÓGICA: Si hay tubería anterior, el objetivo es esa tubería.
+    if (tramo_ant_f != -1) {
+      pos_objetivo_actual.f = tramo_ant_f;
+      pos_objetivo_actual.c = tramo_ant_c;
+    } else {
+      int f_sig = planTuberias.empty() ? -1 : planTuberias.front().fil;
+      int c_sig = planTuberias.empty() ? -1 : planTuberias.front().col;
+      pos_objetivo_actual = ElegirPosicionParaTecnico(ing_f_actual, ing_c_actual, f_sig, c_sig, mapaResultado, mapaCotas);
+    }
+    
+    if (pos_objetivo_actual.f != -1) {
+      estado_asistencia = 1;
+      plan.clear();
+      hayPlan = false;
+    }
+  }
+  
+ if (estado_asistencia == 0) { // ESPERANDO ORDEN
+    // Con nuestra nueva estrategia inteligente:
+    // 1. En la 1º tubería elige una casilla que NO es el siguiente paso del Ingeniero.
+    // 2. En las demás, se sube a la tubería que el Ingeniero acaba de abandonar.
+    // Por lo tanto, el Técnico NUNCA estará en medio del camino.
+    // Solo tiene que quedarse totalmente INMÓVIL esperando la llamada.
+    return IDLE;
+  }
+
+  if (estado_asistencia == 1) { // VIAJAR A LA POSICIÓN
+    if (sensores.posF == pos_objetivo_actual.f && sensores.posC == pos_objetivo_actual.c) {
+      estado_asistencia = 2;
+      casillas_bloqueadas.clear();
+    } else {
+      if (!hayPlan) {
+        EstadoT inicio = { {sensores.posF, sensores.posC, sensores.rumbo}, tiene_zapatillas};
+        EstadoT final = { {pos_objetivo_actual.f, pos_objetivo_actual.c, norte}, false};
+        plan = A_Estrella(inicio, final, mapaResultado, mapaCotas);
+        hayPlan = true;
+      }
+      
+      if (!plan.empty()) {
+        Action act = plan.front(); 
+        plan.pop_front();
+        return act;
+      }
+      return IDLE; 
+    }
+  }
+
+  if (estado_asistencia == 2) { // GIRAR Y SINCRONIZAR
+    ubicacion mi_pos = {sensores.posF, sensores.posC, sensores.rumbo};
+    ubicacion pos_ing = {ing_f_actual, ing_c_actual, norte}; 
+    Orientacion ideal = ObtenerOrientacionOrtogonal(mi_pos, pos_ing);
+    
+    if (sensores.rumbo != ideal) {
+      return OrientarseHacia(sensores.rumbo, ideal);
+    }
+    
+    if (sensores.enfrente) {
+      estado_asistencia = 0;
+      
+      // ¡EL TÉCNICO GUARDA LA POSICIÓN DEL INGENIERO COMO EL TRAMO ANTERIOR!
+      tramo_ant_f = ing_f_actual;
+      tramo_ant_c = ing_c_actual;
+      
+      return INSTALL;        
+    }
+    return IDLE; 
+  }
+
+  return IDLE;
+}
 /**
  * @brief Comportamiento del técnico para el Nivel 6.
  * @param sensores Datos actuales de los sensores.
