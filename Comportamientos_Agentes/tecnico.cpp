@@ -313,7 +313,7 @@ Action ComportamientoTecnico::ComportamientoTecnicoNivel_0(Sensores sensores)
 }
  
 //////////////////////////////////////////////////////////////////////////////////////////
-//NIVEL E
+//NIVEL E Y 2
 //////////////////////////////////////////////////////////////////////////////////////////
 
 list<Action> BREADTH_1ST_SEARCH(){
@@ -370,6 +370,7 @@ vector<vector<unsigned char>> &altura){
   check3 = abs(altura[next.site.f][next.site.c] - altura[st.site.f][st.site.c]) <= 1;
   return check1 and check2 and check3;
 }
+
 EstadoT applyT(Action accion, const EstadoT & st, const vector<vector<unsigned char>> &terreno, const
 vector<vector<unsigned char>> &altura){
   EstadoT next = st;
@@ -396,15 +397,7 @@ bool Find (const NodoT & st, const list<NodoT> &lista){
   }
   return (it != lista.end());
 }
-/**
- * @brief Primera aproximación a la búsqueda en anchura
- * * @param inicio Estado Inicial de la búsqueda.
- * @param final Estado Fianl de la búsqueda.
- * @param terreno Matriz que contiene la información del terreno.
- * @param altura Matriz que contiene la altura del mapa.
- * * @return La secuencia de acciones para llegar al estado final.
- * @note Devuelve un plan vacío si no es posible encontrar un plan válido.
- */
+
 list<Action> ComportamientoTecnico::B_Anchura(const EstadoT &inicio, const EstadoT &final,
                                               const vector<vector<unsigned char>> &terreno,
                                               const vector<vector<unsigned char>> &altura){
@@ -472,16 +465,7 @@ list<Action> ComportamientoTecnico::B_Anchura(const EstadoT &inicio, const Estad
   return path;
 
 }
-/**
- * @brief Segundoa aproximación a la búsqueda en anchura
- * * @param inicio Estado Inicial de la búsqueda.
- * @param final Estado Fianl de la búsqueda.
- * @param terreno Matriz que contiene la información del terreno.
- * @param altura Matriz que contiene la altura del mapa.
- * * @return La secuencia de acciones para llegar al estado final.
- * @note Devuelve un plan vacío si no es posible encontrar un plan válido.
- * @note Explored pasa a ser implementado mediante un "set" en lugar de un "list"
- */
+
 list<Action> ComportamientoTecnico::B_Anchura_V2(const EstadoT &inicio, const EstadoT &final,
                                                  const vector<vector<unsigned char>> &terreno,
                                                  const vector<vector<unsigned char>> &altura){
@@ -573,18 +557,13 @@ Action ComportamientoTecnico::ComportamientoTecnicoNivel_E(Sensores sensores){
   }
   return accion;
 }
-//////////////////////////////////////////////////////////////////////////////////////////
-//NIVEL 2
-//////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * @brief Comportamiento del técnico para el Nivel 2.
  * @param sensores Datos actuales de los sensores.
  * @return Acción a realizar.
  */
-Action ComportamientoTecnico::ComportamientoTecnicoNivel_2(Sensores sensores) {
-  return IDLE;
-}
+Action ComportamientoTecnico::ComportamientoTecnicoNivel_2(Sensores sensores) { return IDLE; }
 //////////////////////////////////////////////////////////////////////////////////////////
 //NIVEL 3
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -594,23 +573,21 @@ int ComportamientoTecnico::Heuristica(const EstadoT &actual, const EstadoT &fina
   int dif_col = std::abs(actual.site.c - final.site.c);
   return std::max(dif_fila, dif_col)  ;
 }
-/*
-bool ComportamientoTecnico::CasillaAccesibleTecnico(const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const{
+
+bool ComportamientoTecnico::CasillaAccesibleTecnico(const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const {
     EstadoT next = NextCasillaTécnico(st);
   
-    // Fuera de límites
     if (next.site.f < 0 || next.site.f >= terreno.size() || next.site.c < 0 || next.site.c >= terreno[0].size()) 
       return false;
 
-    // Casilla bloqueada
     unsigned char dest = terreno[next.site.f][next.site.c];
-    if((dest =='P' || dest == 'M'))
+    
+    if(dest == 'P' || dest == 'M' || dest == '?')// ? para el nivel 6
       return false;
 
     if (dest == 'B' && !st.zapatillas) 
       return false;
 
-    //Altura
     if (abs(altura[next.site.f][next.site.c] - altura[st.site.f][st.site.c]) > 1) 
       return false;
 
@@ -619,8 +596,8 @@ bool ComportamientoTecnico::CasillaAccesibleTecnico(const EstadoT &st, const std
     }
 
     return true;
-  }
-*/
+}
+
 int ComportamientoTecnico::CosteAccionTecnico(Action accion, const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, 
   const std::vector<std::vector<unsigned char>> &altura) const{
       unsigned char terreno_actual = terreno[st.site.f][st.site.c];
@@ -724,6 +701,7 @@ std::list<Action> ComportamientoTecnico::A_Estrella(const EstadoT &inicio, const
     }
     return list<Action>(); // Si el bucle termina, no hay solución. Devolvemos un plan vacío.
 }
+
 /**
  * @brief Comportamiento del técnico para el Nivel 3.
  * @param sensores Datos actuales de los sensores.
@@ -845,38 +823,30 @@ ubicacion ComportamientoTecnico::ElegirPosicionParaTecnico(int fila_ing, int col
   }
   return pos;
 }
-/*
-bool ComportamientoTecnico::TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno,
-                                                 const std::vector<std::vector<unsigned char>> &altura) const
+
+bool ComportamientoTecnico::TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const
 {
-  // limite
   if (sig_fila < 0 || sig_fila >= terreno.size() || sig_col < 0 || sig_col >= terreno[0].size())
     return false;
-  // casilla bloqueada
-  if (terreno[sig_fila][sig_col] == 'P' || terreno[sig_fila][sig_col] == 'M')
+    
+  unsigned char sup = terreno[sig_fila][sig_col];
+
+  if (sup == 'P' || sup == 'M' || sup == '?')   // ? para el nivel 6
     return false;
-  // altura
+    
   int altura_tuberia_actual = altura[actual.fila][actual.columna] + actual.op;
   int altura_tuberia_siguiente = altura[sig_fila][sig_col] + sig_op;
-  // El agua fluye recto (iguales) o hacia abajo (siguientze es 1 unidad menor)
+  
   if (altura_tuberia_siguiente != altura_tuberia_actual && altura_tuberia_siguiente != (altura_tuberia_actual - 1))
     return false;
-  // agua y altura
-  if (terreno[sig_fila][sig_col] == 'A' && sig_op != 0)
+    
+  if (sup == 'A' && sig_op != 0)
     return false;
+    
   return true;
 }
-*/
-/**
- * @brief Algoritmo de búsqueda (BFS) para encontrar la red de tuberías.
- * Explora en 4 direcciones ortogonales. Para cada dirección, intenta aplicar
- * los 3 valores posibles de 'op' (-1, 0, 1), generando hasta 12 posibles hijos por nodo.
- * @param inicioF Fila donde está la Belkanita.
- * @param inicioC Columna donde está la Belkanita.
- * @param terreno Mapa superficial.
- * @param altura Mapa de cotas.
- * @return Una lista de struct 'Paso' con las coordenadas y operaciones de la red.
- */
+
+
 std::list<Paso> ComportamientoTecnico::PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura)
 {
   // CAMBIO: Usamos priority_queue para minimizar el impacto ecológico
@@ -1114,51 +1084,7 @@ Action ComportamientoTecnico::ComportamientoTecnicoNivel_5(Sensores sensores)
 ///////////////////////////////////////////////////////////////////////
 //NIVEL 6 
 /////////////////////////////////////////////////////////////////////// 
-bool ComportamientoTecnico::CasillaAccesibleTecnico(const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const {
-    EstadoT next = NextCasillaTécnico(st);
-  
-    if (next.site.f < 0 || next.site.f >= terreno.size() || next.site.c < 0 || next.site.c >= terreno[0].size()) 
-      return false;
 
-    unsigned char dest = terreno[next.site.f][next.site.c];
-    // ¡AÑADIDO dest == '?' PARA EL NIVEL 6!
-    if(dest == 'P' || dest == 'M' || dest == '?')
-      return false;
-
-    if (dest == 'B' && !st.zapatillas) 
-      return false;
-
-    if (abs(altura[next.site.f][next.site.c] - altura[st.site.f][st.site.c]) > 1) 
-      return false;
-
-    if (casillas_bloqueadas.find({next.site.f, next.site.c}) != casillas_bloqueadas.end()) {
-      return false;
-    }
-
-    return true;
-}
-
-bool ComportamientoTecnico::TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const
-{
-  if (sig_fila < 0 || sig_fila >= terreno.size() || sig_col < 0 || sig_col >= terreno[0].size())
-    return false;
-    
-  unsigned char sup = terreno[sig_fila][sig_col];
-  // ¡AÑADIDO sup == '?' PARA EL NIVEL 6!
-  if (sup == 'P' || sup == 'M' || sup == '?')
-    return false;
-    
-  int altura_tuberia_actual = altura[actual.fila][actual.columna] + actual.op;
-  int altura_tuberia_siguiente = altura[sig_fila][sig_col] + sig_op;
-  
-  if (altura_tuberia_siguiente != altura_tuberia_actual && altura_tuberia_siguiente != (altura_tuberia_actual - 1))
-    return false;
-    
-  if (sup == 'A' && sig_op != 0)
-    return false;
-    
-  return true;
-}
 /**
  * @brief Comportamiento del técnico para el Nivel 6.
  * @param sensores Datos actuales de los sensores.
@@ -1270,6 +1196,7 @@ Action ComportamientoTecnico::ComportamientoTecnicoNivel_6(Sensores sensores)
 
   return IDLE;
 }
+
 // =========================================================================
 // FUNCIONES PROPORCIONADAS
 // =========================================================================
@@ -1443,8 +1370,6 @@ void ComportamientoTecnico::ActualizarMapa(Sensores sensores) {
   }
 }
 
-
-
 /**
  * @brief Determina si una casilla es transitable para el técnico.
  * En esta práctica, si el técnico tiene zapatillas, el bosque ('B') es transitable.
@@ -1536,8 +1461,6 @@ void ComportamientoTecnico::PintaPlan(const list<Action> &plan)
   }
   cout << "( longitud " << plan.size() << ")" << endl;
 }
-
-
 
 /**
  * @brief Convierte un plan de acciones en una lista de casillas para

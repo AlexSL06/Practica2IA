@@ -280,7 +280,7 @@ private:
   // VARIABLES DE ESTADO (PUEDEN SER EXTENDIDAS POR EL ALUMNO)
   // =========================================================================
   /////////////////////////////////////////////////////////
-  //NIVEL 0, 1 Y 2
+  //NIVEL 0, 1 
   /////////////////////////////////////////////////////////
   int contador_giros;
   int cont_walk;
@@ -296,11 +296,15 @@ private:
   bool tiene_zapatillas;
   Action last_action;
 
-  // Gestión del Plan (Nivel 2 en adelante)
+  /////////////////////////////////////////////////////////
+  //NIVEL 2 Y +
+  /////////////////////////////////////////////////////////
   bool hayPlan;
   std::list<Action> plan;
 
-  // Nivel 5
+  /////////////////////////////////////////////////////////
+  //NIVEL 5
+  /////////////////////////////////////////////////////////
   std::list<Paso> planTuberias;
   int estado_instalacion;
   Paso tramo_actual;
@@ -311,89 +315,30 @@ private:
   int tramo_ant_f = -1;
   int tramo_ant_c = -1;
   bool red_planificada = false;
-  int turnos_exploracion; // <-- ¡NUEVA VARIABLE AÑADIDA AQUÍ!
+  int turnos_exploracion; 
 
-  // Cambiamos la firma para pasarle la fila/columna de la SIGUIENTE tubería
   ubicacion ElegirPosicionParaTecnico(int fila_ing, int col_ing, int fila_sig, int col_sig, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
   // =========================================================================
   // FUNCIONES PARA EL NIVEL 2
   // =========================================================================
-
-  // Funciones auxiliares para la búsqueda
   EstadoI NextCasillaIngeniero(const EstadoI &st) const;
   bool CasillaAccesibleIngeniero(const EstadoI &st, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
   bool CasillaAccesibleJumpIngeniero(const EstadoI &st, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
   EstadoI applyI(Action accion, const EstadoI &st, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
-  
-  // Algoritmo de búsqueda óptimo para Nivel 2
-  std::list<Action> B_Anchura(const EstadoI &inicio, const EstadoI &final, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
-
+  list<Action> B_Anchura(const EstadoI &inicio, const EstadoI &final, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
 
   // =========================================================================
   // FUNCIONES PARA EL NIVEL 4
   // =========================================================================
-
-  /**
-   * @brief Evalúa si es posible colocar una tubería en una casilla adyacente.
-   * @param actual El estado (f, c, op) de la tubería de la que partimos.
-   * @param sig_fila La fila de la casilla adyacente ortogonal a evaluar.
-   * @param sig_col La columna de la casilla adyacente ortogonal a evaluar.
-   * @param sig_op La operación (-1, 0, 1) que INTENTAMOS aplicar en la casilla adyacente.
-   * @param terreno Mapa superficial para comprobar obstáculos y agua.
-   * @param altura Mapa de cotas.
-   * @return true si se cumplen TODAS las reglas: límites, gravedad y restricciones de terreno.
-   */
   bool TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
-
-  /**
-   * @brief Algoritmo de búsqueda (BFS) para encontrar la red de tuberías.
-   * Explora en 4 direcciones ortogonales. Para cada dirección, intenta aplicar
-   * los 3 valores posibles de 'op' (-1, 0, 1), generando hasta 12 posibles hijos por nodo.
-   * @param inicioF Fila donde está la Belkanita.
-   * @param inicioC Columna donde está la Belkanita.
-   * @param terreno Mapa superficial.
-   * @param altura Mapa de cotas.
-   * @return Una lista de struct 'Paso' con las coordenadas y operaciones de la red.
-   */
   std::list<Paso> PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
-
 
   // =========================================================================
   // FUNCIONES PARA EL NIVEL 5
   // =========================================================================
-  /**
-   * @brief Busca una casilla ortogonalmente adyacente a la posición actual del
-   * Ingeniero que sea válida para que el Técnico se coloque y ayude a instalar.
-   * Debe comprobar que la casilla esté dentro del mapa, 
-   *                                  no sea obstáculo, y
-   * cumpla la regla de altura:    |Alt_Ing - Alt_Tec| <= 1.
-   * @param st_ingeniero Estado actual del Ingeniero (ya posicionado en la tubería).
-   * @param terreno Matriz de terreno.
-   * @param altura Matriz de altura.
-   * @return La ubicación (fila, columna) elegida para el Técnico.
-   */
   ubicacion ElegirPosicionParaTecnico(const EstadoI &st_ingeniero, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
-
-  /**
-   * @brief Calcula la acción de giro necesaria para pasar de una orientación
-   * actual a una orientación objetivo en el menor número de turnos.
-   * @param actual Orientación actual del agente.
-   * @param objetivo Orientación hacia la que queremos mirar.
-   * @return TURN_SL, TURN_SR o IDLE (si ya estamos mirando hacia allí).
-   */
   Action OrientarseHacia(Orientacion actual, Orientacion objetivo) const;
-
-  /**
-   * @brief Deduce la oriberiaValido y PlanificarRedberiaValido y PlanificarRedentación necesaria para mirar desde una casilla origen 
-   * hacia una casilla destino ortogonal.
-   * @param origen Fila y columna donde estoy.
-   * @param destino Fila y columna a la que quiero mirar.
-   * @return La Orientacion (norte, sur, este, oeste) correspondiente.
-   */
   Orientacion ObtenerOrientacionOrtogonal(const ubicacion &origen, const ubicacion &destino) const;
-  /**
-   * @brief Calcula la casilla adyacente válida a la que debe ir el Técnico.
-   */
   ubicacion ElegirPosicionParaTecnico(int fila_ing, int col_ing, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
 };
 

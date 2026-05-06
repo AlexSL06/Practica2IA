@@ -119,12 +119,15 @@ public:
   /////////////////////////////////////////////////////////
   bool es_camino1(unsigned char c) const;
   int veoCasillaInteresanteT1(char i, char c, char d, bool tiene_zapatillas);
-  
+
   /////////////////////////////////////////////////////////
   //NIVEL 0 Y 1
   /////////////////////////////////////////////////////////
   char viablePorAlturaT(char casilla, int dif);
 
+  /////////////////////////////////////////////////////////
+  //NIVEL E Y 2
+  /////////////////////////////////////////////////////////
   list<Action> B_Anchura(const EstadoT &inicio, const EstadoT &final,
                                               const vector<vector<unsigned char>> &terreno,
                                               const vector<vector<unsigned char>> &altura);

@@ -105,26 +105,26 @@ int ComportamientoIngeniero::veoCasillaInteresanteI1(char i, char c, char d, boo
 
   return 0;
 }
+bool ComportamientoIngeniero::es_camino1(unsigned char c) const
+{
+  return (c == 'C' || c == 'D' || c == 'U' || c == 'S');
+}
 
 bool ComportamientoIngeniero::puedeSaltarI(const Sensores &sensores, bool tiene_zaps)
 {
-  // 1. Comprobar si la casilla intermedia está ocupada o es intransitable
   if (sensores.agentes[2] != '_' || sensores.superficie[2] == 'M' || 
       sensores.superficie[2] == 'P' || sensores.superficie[2] == 'B') {
     return false;
   }
 
-  // 2. REGLA DEL PDF: La altura de la casilla intermedia NO puede ser superior a la inicial
   if (sensores.cota[2] > sensores.cota[0]) {
     return false;
   }
 
-  // 3. Comprobar si la casilla final de aterrizaje es un camino válido
   if (!es_camino(sensores.superficie[6])) {
     return false;
   }
 
-  // 4. Comprobar el límite de altura final respecto al origen
   int diff_altura = abs(sensores.cota[6] - sensores.cota[0]);
   int limite = tiene_zaps ? 2 : 1; // <= 2 con zapatillas, <= 1 sin zapatillas
 
@@ -372,12 +372,6 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_0(Sensores sensores
   return accion;
 }
 
-
-bool ComportamientoIngeniero::es_camino1(unsigned char c) const
-{
-  return (c == 'C' || c == 'D' || c == 'U' || c == 'S');
-}
-
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_1(Sensores sensores)
 {
   Action accion;
@@ -539,8 +533,10 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_1(Sensores sensores
   return accion;
 }
 
-EstadoI ComportamientoIngeniero::NextCasillaIngeniero(const EstadoI &st) const
-{
+/////////////////////////////////////////////////////////
+//NIVEL 2
+/////////////////////////////////////////////////////////
+EstadoI ComportamientoIngeniero::NextCasillaIngeniero(const EstadoI &st) const{
   EstadoI siguiente = st;
   switch (st.orientacion)
   {
@@ -575,50 +571,25 @@ EstadoI ComportamientoIngeniero::NextCasillaIngeniero(const EstadoI &st) const
   }
   return siguiente;
 }
-/*
-bool ComportamientoIngeniero::CasillaAccesibleIngeniero(const EstadoI &st, const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura) const
-{
-  EstadoI next = NextCasillaIngeniero(st);
-
-  // Fuera de límites
-  if (next.fila < 0 || next.fila >= terreno.size() || next.columna < 0 || next.columna >= terreno[0].size())
-    return false;
-
-  unsigned char sup = terreno[next.fila][next.columna];
-  // ¡IMPORTANTE! El bosque ('B') SIEMPRE es intransitable para el Ingeniero (PDF Pág. 6)
-  if (sup == 'P' || sup == 'M' || sup == 'B')
-  {
-    return false;
-  }
-
-  int diff = altura[next.fila][next.columna] - altura[st.fila][st.columna];
-  int limite_altura = st.zapatillas ? 2 : 1;
-
-  return abs(diff) <= limite_altura;
-}
-*/
-/*
-bool ComportamientoIngeniero::CasillaAccesibleJumpIngeniero(const EstadoI &st, const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura) const
-{
+bool ComportamientoIngeniero::CasillaAccesibleJumpIngeniero(const EstadoI &st, const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura) const{
   EstadoI inter = NextCasillaIngeniero(st);
 
-  // Casilla intermedia
   if (inter.fila < 0 || inter.fila >= terreno.size() || inter.columna < 0 || inter.columna >= terreno[0].size())
     return false;
   unsigned char sup_inter = terreno[inter.fila][inter.columna];
-  if (sup_inter == 'P' || sup_inter == 'M' || sup_inter == 'B')
+
+  if (sup_inter == 'P' || sup_inter == 'M' || sup_inter == 'B' || sup_inter == '?') // ? es para el nivel 6
     return false;
 
-  // REGLA FÍSICA: Al saltar, no podemos atravesar una pared más alta que nuestra posición actual
   if (altura[inter.fila][inter.columna] > altura[st.fila][st.columna])
     return false;
 
-  // Casilla final de aterrizaje
   EstadoI final_st = NextCasillaIngeniero(inter);
   if (final_st.fila < 0 || final_st.fila >= terreno.size() || final_st.columna < 0 || final_st.columna >= terreno[0].size())
     return false;
   unsigned char sup_final = terreno[final_st.fila][final_st.columna];
-  if (sup_final == 'P' || sup_final == 'M' || sup_final == 'B')
+
+  if (sup_final == 'P' || sup_final == 'M' || sup_final == 'B' || sup_final == '?') // ? es para el nivel 6
     return false;
 
   int diff = altura[final_st.fila][final_st.columna] - altura[st.fila][st.columna];
@@ -626,9 +597,7 @@ bool ComportamientoIngeniero::CasillaAccesibleJumpIngeniero(const EstadoI &st, c
 
   return abs(diff) <= limite_altura;
 }
-*/
-EstadoI ComportamientoIngeniero::applyI(Action accion, const EstadoI &st, const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura) const
-{
+EstadoI ComportamientoIngeniero::applyI(Action accion, const EstadoI &st, const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura) const{
   EstadoI next = st;
   switch (accion)
   {
@@ -653,18 +622,14 @@ EstadoI ComportamientoIngeniero::applyI(Action accion, const EstadoI &st, const 
   }
   return next;
 }
-list<Action> ComportamientoIngeniero::B_Anchura(const EstadoI &inicio, const EstadoI &final, const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura)
-{
+list<Action> ComportamientoIngeniero::B_Anchura(const EstadoI &inicio, const EstadoI &final, const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura){
   queue<NodoI> frontier;
   set<EstadoI> explored;
   list<Action> path;
 
-  // Caso borde: Si ya estamos en la meta al empezar
   if (inicio.fila == final.fila && inicio.columna == final.columna)
-  {
     return path;
-  }
-
+  
   NodoI current_node;
   current_node.estado = inicio;
 
@@ -676,40 +641,32 @@ list<Action> ComportamientoIngeniero::B_Anchura(const EstadoI &inicio, const Est
     current_node = frontier.front();
     frontier.pop();
 
-    // Priorizamos JUMP porque avanza 2 casillas en 1 solo instante de simulación
+    // priorizamos JUMP porque avanza 2 casillas en 1
     Action acciones[] = {JUMP, WALK, TURN_SL, TURN_SR};
 
     for (Action accion : acciones)
     {
       bool posible = false;
 
-      // Comprobamos la legalidad de la acción
-      if (accion == WALK)
-      {
+      if (accion == WALK){
         posible = CasillaAccesibleIngeniero(current_node.estado, terreno, altura);
-      }
-      else if (accion == JUMP)
-      {
+      }else if (accion == JUMP){
         posible = CasillaAccesibleJumpIngeniero(current_node.estado, terreno, altura);
-      }
-      else
-      {
-        posible = true; // Girar siempre es legal
+      }else{
+        posible = true; 
       }
 
-      if (posible)
-      {
+      if (posible){
         NodoI child = current_node;
         child.estado = applyI(accion, current_node.estado, terreno, altura);
         child.secuencia.push_back(accion);
 
-        // EARLY GOAL TEST: Verificamos la meta antes de meterlo en la cola
         if (child.estado.fila == final.fila && child.estado.columna == final.columna)
         {
-          return child.secuencia; // Hemos encontrado la ruta más corta
+          return child.secuencia; // ruta mas corta encontrada
         }
 
-        // Si es un estado no explorado, lo añadimos
+        // si es un estado no explorado lo añadimos
         if (explored.find(child.estado) == explored.end())
         {
           explored.insert(child.estado);
@@ -719,39 +676,27 @@ list<Action> ComportamientoIngeniero::B_Anchura(const EstadoI &inicio, const Est
     }
   }
 
-  return path; // Si no hay camino, devuelve lista vacía
+  return path; // si no hay camino devuelve lista vacía
 }
-
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_2(Sensores sensores)
 {
-  // 1. GESTIÓN DE COLISIONES (¡NUEVO!)
-  // Si nos hemos chocado en el instante anterior, la acción falló.
-  if (sensores.choque)
-  {
-    // Si chocamos porque el Técnico ('t') está justo delante, simplemente le damos tiempo a apartarse.
-    if (sensores.agentes[2] == 't')
-    {
-      // Re-insertamos la acción que falló al principio del plan para intentarlo de nuevo luego
+  if (sensores.choque){
+    if (sensores.agentes[2] == 't'){
       plan.push_front(last_action);
-      return IDLE; // Esperamos un turno sin hacer nada
+      return IDLE; 
     }
-    else
-    {
-      // Si chocamos contra un árbol o muro (el plan era defectuoso), borramos el plan para recalcular
+    else{
       hayPlan = false;
       plan.clear();
     }
   }
 
-  // 2. CÁLCULO DEL PLAN (Si no tenemos uno)
-  if (!hayPlan)
-  {
+  if (!hayPlan){
     EstadoI inicio;
     inicio.fila = sensores.posF;
     inicio.columna = sensores.posC;
     inicio.orientacion = sensores.rumbo;
 
-    // Verificamos si empezamos sobre unas zapatillas
     if (sensores.superficie[0] == 'D')
       tiene_zapatillas = true;
     inicio.zapatillas = tiene_zapatillas;
@@ -760,36 +705,32 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_2(Sensores sensores
     meta.fila = sensores.BelPosF;
     meta.columna = sensores.BelPosC;
 
-    // Llamamos a nuestro planificador BFS
     plan = B_Anchura(inicio, meta, mapaResultado, mapaCotas);
     hayPlan = (plan.size() > 0);
 
-    if (hayPlan)
-    {
+    if (hayPlan){
       ubicacion st_ini = {inicio.fila, inicio.columna, inicio.orientacion};
       VisualizaPlan(st_ini, plan);
     }
   }
 
-  // 3. EJECUCIÓN DEL PLAN
-  if (hayPlan && plan.size() > 0)
-  {
+  if (hayPlan && plan.size() > 0){
     Action accion_a_realizar = plan.front();
-    plan.pop_front(); // Quitamos la acción de la lista
+    plan.pop_front();
 
     if (plan.size() == 0)
-    {
       hayPlan = false;
-    }
+    
 
-    last_action = accion_a_realizar; // Guardamos la acción por si chocamos en el siguiente turno
+    last_action = accion_a_realizar;
     return accion_a_realizar;
   }
-
-  // Si no hay solución posible
   return IDLE;
 }
 
+/////////////////////////////////////////////////////////
+//NIVEL 3
+/////////////////////////////////////////////////////////
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_3(Sensores sensores) { return IDLE; }
 ///////////////////////////////////////////////////////////////////////
 // NIVEL 4
@@ -804,28 +745,29 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_3(Sensores sensores
  * @param altura Mapa de cotas.
  * @return true si se cumplen TODAS las reglas: límites, gravedad y restricciones de terreno.
  */
-/*
-bool ComportamientoIngeniero::TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno,
-                                                 const std::vector<std::vector<unsigned char>> &altura) const
+
+bool ComportamientoIngeniero::TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const
 {
-  // limite
   if (sig_fila < 0 || sig_fila >= terreno.size() || sig_col < 0 || sig_col >= terreno[0].size())
     return false;
-  // casilla bloqueada
-  if (terreno[sig_fila][sig_col] == 'P' || terreno[sig_fila][sig_col] == 'M')
+    
+  unsigned char sup = terreno[sig_fila][sig_col];
+  
+  if (sup == 'P' || sup == 'M' || sup == '?') // ? es para el nivel 6
     return false;
-  // altura
+    
   int altura_tuberia_actual = altura[actual.fila][actual.columna] + actual.op;
   int altura_tuberia_siguiente = altura[sig_fila][sig_col] + sig_op;
-  // El agua fluye recto (iguales) o hacia abajo (siguientze es 1 unidad menor)
+  
   if (altura_tuberia_siguiente != altura_tuberia_actual && altura_tuberia_siguiente != (altura_tuberia_actual - 1))
     return false;
-  // agua y altura
-  if (terreno[sig_fila][sig_col] == 'A' && sig_op != 0)
+    
+  if (sup == 'A' && sig_op != 0)
     return false;
+    
   return true;
 }
-*/
+
 /**
  * @brief Algoritmo de búsqueda (BFS) para encontrar la red de tuberías.
  * Explora en 4 direcciones ortogonales. Para cada dirección, intenta aplicar
@@ -836,7 +778,7 @@ bool ComportamientoIngeniero::TramoTuberiaValido(const EstadoTuberia &actual, in
  * @param altura Mapa de cotas.
  * @return Una lista de struct 'Paso' con las coordenadas y operaciones de la red.
  */
-std::list<Paso> ComportamientoIngeniero::PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura)
+list<Paso> ComportamientoIngeniero::PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura)
 {
   // CAMBIO: Usamos priority_queue para minimizar el impacto ecológico
   priority_queue<NodoTuberia> frontier;
@@ -1008,12 +950,10 @@ Orientacion ComportamientoIngeniero::ObtenerOrientacionOrtogonal(const ubicacion
   else
     return oeste;
 }
-/*
+
 ubicacion ComportamientoIngeniero::ElegirPosicionParaTecnico(int fila_ing, int col_ing, int fila_sig, int col_sig, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const {
-  ubicacion pos;
-  pos.f = -1; 
-  pos.c = -1;
-  pos.brujula = norte;
+  ubicacion pos; pos.f = -1; pos.c = -1; pos.brujula = norte;
+  ubicacion pos_fallback; pos_fallback.f = -1;
 
   int pfila[4] = {-1, 0, 1, 0};
   int pcol[4] = {0, 1, 0, -1};
@@ -1022,29 +962,32 @@ ubicacion ComportamientoIngeniero::ElegirPosicionParaTecnico(int fila_ing, int c
     int f_ady = fila_ing + pfila[i];
     int c_ady = col_ing + pcol[i];
     
-    // Evitamos salir del mapa
-    if(f_ady < 0 || c_ady < 0 || f_ady >= terreno.size() || c_ady >= terreno[0].size()) continue; 
-    
-    // ¡NUEVO! EVITAMOS LA CASILLA DE LA SIGUIENTE TUBERÍA
-    if(f_ady == fila_sig && c_ady == col_sig) continue;
+    if(f_ady < 0 || c_ady < 0 || f_ady >= (int)terreno.size() || c_ady >= (int)terreno[0].size()) continue; 
     
     unsigned char sup = terreno[f_ady][c_ady];
-    // Evitamos obstáculos
     if(sup == 'M' || sup == 'P' || sup == 'A' || sup == '?') continue;
     
     int alt_ing = altura[fila_ing][col_ing];
     int alt_tec = altura[f_ady][c_ady];
     
-    // Regla de altura
     if (alt_ing > alt_tec || alt_ing < alt_tec - 1) continue;
     
-    pos.f = f_ady;
-    pos.c = c_ady;
+    if(f_ady == fila_sig && c_ady == col_sig) {
+        pos_fallback.f = f_ady;
+        pos_fallback.c = c_ady;
+        continue;
+    }
+    
+    pos.f = f_ady; pos.c = c_ady;
     return pos;
+  }
+  
+  if (pos_fallback.f != -1) {
+      pos.f = pos_fallback.f; pos.c = pos_fallback.c;
   }
   return pos;
 }
-  */
+  
 
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_5(Sensores sensores)
 {
@@ -1191,94 +1134,10 @@ bool ComportamientoIngeniero::CasillaAccesibleIngeniero(const EstadoI &st, const
   return abs(diff) <= limite_altura;
 }
 
-bool ComportamientoIngeniero::CasillaAccesibleJumpIngeniero(const EstadoI &st, const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura) const
-{
-  EstadoI inter = NextCasillaIngeniero(st);
-
-  if (inter.fila < 0 || inter.fila >= terreno.size() || inter.columna < 0 || inter.columna >= terreno[0].size())
-    return false;
-  unsigned char sup_inter = terreno[inter.fila][inter.columna];
-  // ¡AÑADIDO sup_inter == '?' PARA EL NIVEL 6!
-  if (sup_inter == 'P' || sup_inter == 'M' || sup_inter == 'B' || sup_inter == '?') 
-    return false;
-
-  if (altura[inter.fila][inter.columna] > altura[st.fila][st.columna])
-    return false;
-
-  EstadoI final_st = NextCasillaIngeniero(inter);
-  if (final_st.fila < 0 || final_st.fila >= terreno.size() || final_st.columna < 0 || final_st.columna >= terreno[0].size())
-    return false;
-  unsigned char sup_final = terreno[final_st.fila][final_st.columna];
-  // ¡AÑADIDO sup_final == '?' PARA EL NIVEL 6!
-  if (sup_final == 'P' || sup_final == 'M' || sup_final == 'B' || sup_final == '?') 
-    return false;
-
-  int diff = altura[final_st.fila][final_st.columna] - altura[st.fila][st.columna];
-  int limite_altura = st.zapatillas ? 2 : 1;
-
-  return abs(diff) <= limite_altura;
-}
-
-bool ComportamientoIngeniero::TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const
-{
-  if (sig_fila < 0 || sig_fila >= terreno.size() || sig_col < 0 || sig_col >= terreno[0].size())
-    return false;
-    
-  unsigned char sup = terreno[sig_fila][sig_col];
-  // ¡AÑADIDO sup == '?' PARA EL NIVEL 6!
-  if (sup == 'P' || sup == 'M' || sup == '?') 
-    return false;
-    
-  int altura_tuberia_actual = altura[actual.fila][actual.columna] + actual.op;
-  int altura_tuberia_siguiente = altura[sig_fila][sig_col] + sig_op;
-  
-  if (altura_tuberia_siguiente != altura_tuberia_actual && altura_tuberia_siguiente != (altura_tuberia_actual - 1))
-    return false;
-    
-  if (sup == 'A' && sig_op != 0)
-    return false;
-    
-  return true;
-}
 // =======================================================================
 // NUEVA FUNCIÓN: Elegir Posición (Acepta fallback si está acorralado)
 // =======================================================================
-ubicacion ComportamientoIngeniero::ElegirPosicionParaTecnico(int fila_ing, int col_ing, int fila_sig, int col_sig, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const {
-  ubicacion pos; pos.f = -1; pos.c = -1; pos.brujula = norte;
-  ubicacion pos_fallback; pos_fallback.f = -1;
 
-  int pfila[4] = {-1, 0, 1, 0};
-  int pcol[4] = {0, 1, 0, -1};
-
-  for(int i = 0; i < 4; i++){
-    int f_ady = fila_ing + pfila[i];
-    int c_ady = col_ing + pcol[i];
-    
-    if(f_ady < 0 || c_ady < 0 || f_ady >= (int)terreno.size() || c_ady >= (int)terreno[0].size()) continue; 
-    
-    unsigned char sup = terreno[f_ady][c_ady];
-    if(sup == 'M' || sup == 'P' || sup == 'A' || sup == '?') continue;
-    
-    int alt_ing = altura[fila_ing][col_ing];
-    int alt_tec = altura[f_ady][c_ady];
-    
-    if (alt_ing > alt_tec || alt_ing < alt_tec - 1) continue;
-    
-    if(f_ady == fila_sig && c_ady == col_sig) {
-        pos_fallback.f = f_ady;
-        pos_fallback.c = c_ady;
-        continue;
-    }
-    
-    pos.f = f_ady; pos.c = c_ady;
-    return pos;
-  }
-  
-  if (pos_fallback.f != -1) {
-      pos.f = pos_fallback.f; pos.c = pos_fallback.c;
-  }
-  return pos;
-}
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores)
 {
   ActualizarMapa(sensores);
@@ -1467,6 +1326,8 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores
 
   return IDLE;
 }
+
+
 // =========================================================================
 // FUNCIONES PROPORCIONADAS
 // =========================================================================
