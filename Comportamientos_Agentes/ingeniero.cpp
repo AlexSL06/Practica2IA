@@ -888,8 +888,7 @@ list<Paso> ComportamientoIngeniero::PlanificarRedTuberias(int inicioF, int inici
 }
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_4(Sensores sensores)
 {
-  if (!hayPlan)
-  {
+  if (!hayPlan){
     // Hacemos la llamada solo 1 vez para no gastar CPU a lo tonto
     planTuberias = PlanificarRedTuberias(sensores.BelPosF, sensores.BelPosC, mapaResultado, mapaCotas, sensores.max_ecologico);    
     VisualizaRedTuberias(planTuberias);
