@@ -601,75 +601,76 @@ bool ComportamientoTecnico::CasillaAccesibleTecnico(const EstadoT &st, const std
 int ComportamientoTecnico::CosteAccionTecnico(Action accion, const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, 
   const std::vector<std::vector<unsigned char>> &altura) const{
       unsigned char terreno_actual = terreno[st.site.f][st.site.c];
-      int coste =0;
+      int coste = 0;
 
-      switch (accion)
-      {
-      case WALK:{
-        if (terreno_actual == 'A') coste = 60;
-        else if (terreno_actual == 'H') coste = 6;
-        else if (terreno_actual == 'S') coste = 3;
-        else if (terreno_actual == 'B' && st.zapatillas) coste = 1; 
-        else coste = 1; 
+      switch (accion) {
+        case WALK:{
+          if (terreno_actual == 'A') coste = 60;
+          else if (terreno_actual == 'H') coste = 6;
+          else if (terreno_actual == 'S') coste = 3;
+          else if (terreno_actual == 'B' && st.zapatillas) coste = 1; 
+          else coste = 1; 
 
-        EstadoT next = NextCasillaTécnico(st);
-        int diff_altura = altura[next.site.f][next.site.c] - altura[st.site.f][st.site.c];
-      
-        if (diff_altura == 1) {
-          coste += 5; 
-        } else if (diff_altura == -1) {
-          coste -= 2; 
+          EstadoT next = NextCasillaTécnico(st);
+          int diff_altura = altura[next.site.f][next.site.c] - altura[st.site.f][st.site.c];
+        
+          if (diff_altura == 1) {
+            coste += 5; 
+          } else if (diff_altura == -1) {
+            coste -= 2; 
+          }
+
+          if (coste < 1) coste = 1;
+          break;
         }
-        break;
-      }
-      case TURN_SL: // Fall-through: Este caso y el siguiente ejecutan el mismo código
-      case TURN_SR:
-        if (terreno_actual == 'A') coste = 5;
-        else if (terreno_actual == 'H') coste = 2;
-        else if (terreno_actual == 'S') coste = 1;
-        else if (terreno_actual == 'B' && st.zapatillas) coste = 1;
-        else coste = 1; // Resto de casillas
-        break;
-      default:
-        coste = 0;
-        break;
+        case TURN_SL: 
+        case TURN_SR:
+          if (terreno_actual == 'A') coste = 5;
+          else if (terreno_actual == 'H') coste = 2;
+          else if (terreno_actual == 'S') coste = 1;
+          else if (terreno_actual == 'B' && st.zapatillas) coste = 1;
+          else coste = 1; 
+          break;
+        default:
+          coste = 0;
+          break;
       }
       return coste;
-    }
+}
 
 std::list<Action> ComportamientoTecnico::A_Estrella(const EstadoT &inicio, const EstadoT &final, 
     const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura){    
+    
     std::priority_queue<NodoT> frontier;
     std::map<EstadoT, int> explored;
 
     NodoT nodo_inicial;
-    nodo_inicial.estado = inicio; //El estado que te pasan como parámetro
-    nodo_inicial.secuencia = {};  //La lista de acciones está vacía al empezar
-    
-    nodo_inicial.g = 0; // No hemos gastado energía aún
-    nodo_inicial.h = Heuristica(inicio, final); //Calcula la distancia estimada a la meta
+    nodo_inicial.estado = inicio; 
+    nodo_inicial.secuencia = {};  
+    nodo_inicial.g = 0; 
+    nodo_inicial.h = Heuristica(inicio, final); 
     nodo_inicial.f = nodo_inicial.g + nodo_inicial.h;
 
     frontier.push(nodo_inicial);
     explored[inicio] = 0;
 
     while (!frontier.empty()) {
-      // mejor nodo de la frontera (menor 'f')
       NodoT current_node = frontier.top();
       frontier.pop();
 
-      //hemos llegado? 
-      if (current_node.estado.site.f == final.site.f && current_node.estado.site.c == final.site.c) {
-          return current_node.secuencia; // Devuelve la lista de acciones
+      if (current_node.g > explored[current_node.estado]) {
+          continue;
       }
-      //si no generamos sus hijos
+
+      if (current_node.estado.site.f == final.site.f && current_node.estado.site.c == final.site.c) {
+          return current_node.secuencia; 
+      }
       
       Action acciones_posibles[] = {WALK, TURN_SL, TURN_SR};
 
       for(Action accion : acciones_posibles){
-        // A. ¿Es una acción legal? (Para WALK, usamos CasillaAccesibleTecnico. Girar siempre es posible)
         if (accion == WALK && !CasillaAccesibleTecnico(current_node.estado, terreno, altura)) {
-          continue; // Si no podemos caminar, saltamos a la siguiente acción
+          continue; 
         }
         
         EstadoT estado_hijo = applyT(accion, current_node.estado, terreno, altura); 
@@ -678,14 +679,9 @@ std::list<Action> ComportamientoTecnico::A_Estrella(const EstadoT &inicio, const
 
         auto it_explored = explored.find(estado_hijo);
         
-        // Entramos aquí si:
-        // 1. NUNCA habíamos llegado a este estado (it_explored == explored.end()).
-        // 2. O SÍ habíamos llegado, pero este NUEVO camino es MÁS BARATO (g_hijo < coste_anterior).
         if (it_explored == explored.end() || g_hijo < it_explored->second) {
-          // Actualizamos (o insertamos) el coste en la lista de explorados
           explored[estado_hijo] = g_hijo;
 
-          // Creamos el nuevo nodo para meterlo en la frontera
           NodoT nodo_hijo;
           nodo_hijo.estado = estado_hijo;
           nodo_hijo.secuencia = current_node.secuencia;
@@ -697,9 +693,8 @@ std::list<Action> ComportamientoTecnico::A_Estrella(const EstadoT &inicio, const
           frontier.push(nodo_hijo);
         }
       }
-      
     }
-    return list<Action>(); // Si el bucle termina, no hay solución. Devolvemos un plan vacío.
+    return std::list<Action>(); 
 }
 
 /**
@@ -708,17 +703,15 @@ std::list<Action> ComportamientoTecnico::A_Estrella(const EstadoT &inicio, const
  * @return Acción a realizar.
  */
 Action ComportamientoTecnico::ComportamientoTecnicoNivel_3(Sensores sensores) {
-  // Actualizamos estado (por si pisamos zapatillas)
-  if (sensores.superficie[0] == 'D') {
+  if (sensores.superficie[0] == 'D') 
     tiene_zapatillas = true;
-  }
 
-  // Si chocamos, el plan es inválido. Forzamos un recalculo.
+  // si chocamos plan = inválido recalculamos.
   if (sensores.choque) {
     hayPlan = false;
   }
 
-  // 1. Si no hay plan, lo calculamos
+  // si no hay plan lo calculamos
   if (!hayPlan) {
     EstadoT inicio;
     inicio.site.f = sensores.posF;
@@ -733,19 +726,19 @@ Action ComportamientoTecnico::ComportamientoTecnicoNivel_3(Sensores sensores) {
     plan = A_Estrella(inicio, final, mapaResultado, mapaCotas);
     hayPlan = !plan.empty();
 
-    // SUGERENCIA: Visualiza el plan para ver la ruta en el mapa
+    // ver plan 
     if (hayPlan) {
       VisualizaPlan(inicio.site, plan);
     }
   }
 
-  // 2. Si hay un plan, lo ejecutamos
+  // si hay plan ejecutar
   Action proxima_accion = IDLE;
   if (hayPlan && !plan.empty()) {
     proxima_accion = plan.front();
     plan.pop_front();
     
-    // Si era la última acción, marcamos que ya no hay plan
+    // si era la ult acción, marcamos que ya no hay plan
     if (plan.empty()) {
       hayPlan = false;
     }
@@ -755,6 +748,9 @@ Action ComportamientoTecnico::ComportamientoTecnicoNivel_3(Sensores sensores) {
 
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+//NIVEL 4
+//////////////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief Comportamiento del técnico para el Nivel 4.
  * @param sensores Datos actuales de los sensores.

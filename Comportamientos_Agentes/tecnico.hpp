@@ -296,18 +296,28 @@ private:
   int tramo_ant_f = -1;
   int tramo_ant_c = -1;
   bool red_planificada = false;
-
-  // Igual que en el ingeniero
-  ubicacion ElegirPosicionParaTecnico(int fila_ing, int col_ing, int fila_sig, int col_sig, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
-  // Funciones y variables copiadas del ingeniero para predecir alturas
   std::list<Paso> planTuberias;
   bool red_completada = false;
+
+  /////////////////////////////////////////////////////////
+  //NIVEL 3
+  /////////////////////////////////////////////////////////
+  int Heuristica(const EstadoT &actual, const EstadoT &final) const;
+  bool CasillaAccesibleTecnico(const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, 
+    const std::vector<std::vector<unsigned char>> &altura) const;
+  int CosteAccionTecnico(Action accion, const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, 
+    const std::vector<std::vector<unsigned char>> &altura) const;
+  std::list<Action> A_Estrella(const EstadoT &inicio, const EstadoT &final, 
+    const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
+  
+  /////////////////////////////////////////////////////////
+  //NIVEL 5 Y 6
+  /////////////////////////////////////////////////////////
   struct EstadoTuberia {
     int fila;
     int columna;
     int op; // Operación aplicada: -1 (DIG), 0 (Nada), 1 (RAISE)
 
-    // Operador necesario para guardar en 'explored' (set o map)
     bool operator<(const EstadoTuberia &st) const {
       if (fila < st.fila) return true;
       else if (fila == st.fila && columna < st.columna) return true;
@@ -318,39 +328,22 @@ private:
       return fila == st.fila && columna == st.columna && op == st.op;
     }
   };
- struct NodoTuberia {
+  struct NodoTuberia {
     EstadoTuberia estado;
     std::list<Paso> secuencia; 
-    int costo; // NUEVO: Acumulador de impacto ecológico
+    int costo; // impacto ecológico
     
-    // Operador para la cola de prioridad (el de MENOR costo sale primero)
     bool operator<(const NodoTuberia &otro) const {
       return costo > otro.costo;
     }
   };
+  ubicacion ElegirPosicionParaTecnico(int fila_ing, int col_ing, int fila_sig, int col_sig, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
+
   bool TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
   std::list<Paso> PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
 
-
-  int Heuristica(const EstadoT &actual, const EstadoT &final) const;
-
-  bool CasillaAccesibleTecnico(const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, 
-  const std::vector<std::vector<unsigned char>> &altura) const;
-
-  int CosteAccionTecnico(Action accion, const EstadoT &st, const std::vector<std::vector<unsigned char>> &terreno, 
-    const std::vector<std::vector<unsigned char>> &altura) const;
-
-  std::list<Action> A_Estrella(const EstadoT &inicio, const EstadoT &final, 
-    const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
-  
-  /////////////////////////////////////////////////////////
-  //NIVEL 5
-  /////////////////////////////////////////////////////////
   Action OrientarseHacia(Orientacion actual, Orientacion objetivo) const;
-
-
   Orientacion ObtenerOrientacionOrtogonal(const ubicacion &origen, const ubicacion &destino) const;
-
   ubicacion ElegirPosicionParaTecnico(int fila_ing, int col_ing, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
 };
 
