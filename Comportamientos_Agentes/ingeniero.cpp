@@ -889,7 +889,6 @@ list<Paso> ComportamientoIngeniero::PlanificarRedTuberias(int inicioF, int inici
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_4(Sensores sensores)
 {
   if (!hayPlan){
-    // Hacemos la llamada solo 1 vez para no gastar CPU a lo tonto
     planTuberias = PlanificarRedTuberias(sensores.BelPosF, sensores.BelPosC, mapaResultado, mapaCotas, sensores.max_ecologico);    
     VisualizaRedTuberias(planTuberias);
     hayPlan = true;
@@ -900,8 +899,7 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_4(Sensores sensores
 ///////////////////////////////////////////////////////////////////////
 // NIVEL 5
 ///////////////////////////////////////////////////////////////////////
-Action ComportamientoIngeniero::OrientarseHacia(Orientacion actual, Orientacion objetivo) const
-{
+Action ComportamientoIngeniero::OrientarseHacia(Orientacion actual, Orientacion objetivo) const{
   if (actual == objetivo)
     return IDLE;
 
@@ -912,13 +910,6 @@ Action ComportamientoIngeniero::OrientarseHacia(Orientacion actual, Orientacion 
   return TURN_SL;
 }
 
-/**
- * @brief Deduce la orientación necesaria para mirar desde una casilla origen
- * hacia una casilla destino ortogonal.
- * @param origen Fila y columna donde estoy.
- * @param destino Fila y columna a la que quiero mirar.
- * @return La Orientacion (norte, sur, este, oeste) correspondiente.
- */
 Orientacion ComportamientoIngeniero::ObtenerOrientacionOrtogonal(const ubicacion &origen, const ubicacion &destino) const
 {
   if ((destino.f - origen.f) == -1 && (destino.c - origen.c) == 0)
@@ -968,15 +959,14 @@ ubicacion ComportamientoIngeniero::ElegirPosicionParaTecnico(int fila_ing, int c
   return pos;
 }
   
-
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_5(Sensores sensores)
 {
   if (sensores.superficie[0] == 'D') tiene_zapatillas = true;
 
-  // INICIALIZACIÓN: Planificamos la red solo una vez al inicio
+  // INICIALIZACIÓN: Planificar red
   if (!red_planificada) {
     planTuberias = PlanificarRedTuberias(sensores.BelPosF, sensores.BelPosC, mapaResultado, mapaCotas, sensores.max_ecologico);
-    red_planificada = true; // ¡Marcamos que ya hemos planificado!
+    red_planificada = true; 
     
     if (planTuberias.empty()) {
       red_completada = true; 
@@ -987,7 +977,6 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_5(Sensores sensores
     estado_instalacion = 0;
     hayPlan = false;
     
-    // Inicializamos el tramo anterior a "vacío"
     tramo_ant_f = -1;
     tramo_ant_c = -1;
   }
@@ -1038,8 +1027,8 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_5(Sensores sensores
     estado_instalacion = 2; 
   }
 
-  if (estado_instalacion == 2) { // ALINEARSE Y GRITAR "VENPACA"
-    // TU LÓGICA: Si hay tubería anterior, vamos ahí. Si no, calculamos.
+  if (estado_instalacion == 2) { // ALINEARSE Y VENPACA
+    // si hay tuberia anterior vamos ahi si no calcular
     if (tramo_ant_f != -1) {
       pos_tecnico.f = tramo_ant_f;
       pos_tecnico.c = tramo_ant_c;
@@ -1082,9 +1071,6 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_5(Sensores sensores
       return INSTALL; 
     }
     
-    // ¡NUEVO! El ingeniero es insistente. Si el técnico aún no ha llegado
-    // o se ha perdido explorando, sigue emitiendo la señal COME.
-    // Coste de energía de COME = 0.
     last_action = COME;
     return COME; 
   }
@@ -1094,17 +1080,15 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_5(Sensores sensores
 ///////////////////////////////////////////////////////////////////////
 // NIVEL 6
 ///////////////////////////////////////////////////////////////////////
-bool ComportamientoIngeniero::CasillaAccesibleIngeniero(const EstadoI &st, const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura) const
-{
+bool ComportamientoIngeniero::CasillaAccesibleIngeniero(const EstadoI &st, const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura) const{
   EstadoI next = NextCasillaIngeniero(st);
 
   if (next.fila < 0 || next.fila >= terreno.size() || next.columna < 0 || next.columna >= terreno[0].size())
     return false;
 
   unsigned char sup = terreno[next.fila][next.columna];
-  // ¡AÑADIDO sup == '?' PARA EL NIVEL 6!
-  if (sup == 'P' || sup == 'M' || sup == 'B' || sup == '?') 
-  {
+
+  if (sup == 'P' || sup == 'M' || sup == 'B' || sup == '?') {
     return false;
   }
 
@@ -1114,45 +1098,38 @@ bool ComportamientoIngeniero::CasillaAccesibleIngeniero(const EstadoI &st, const
   return abs(diff) <= limite_altura;
 }
 
-// =======================================================================
-// NUEVA FUNCIÓN: Elegir Posición (Acepta fallback si está acorralado)
-// =======================================================================
-
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores)
 {
   ActualizarMapa(sensores);
   if (sensores.superficie[0] == 'D') tiene_zapatillas = true;
 
-  turnos_exploracion++; // Llevamos la cuenta del tiempo gastado explorando
+  turnos_exploracion++; // t gastado explorando
 
   if (red_completada) return IDLE;
 
-  // --- FASE 1: EXPLORACIÓN INICIAL Y PLANIFICACIÓN ---
+  // parte 1: EXPLORACIÓN + PLANIFICACIÓN
   if (!red_planificada) {
     int cantidad_u = 0;
     int min_dist_u = 9999;
 
-    // Solo podemos evaluar distancias si ya sabemos dónde está la Belkanita
+    // solo evaluar distancias si ya sabemos donde esta la Belkanita
     if (mapaResultado[sensores.BelPosF][sensores.BelPosC] != '?') {
       
-      // Buscamos todas las plantas de tratamiento descubiertas en nuestro mapa
+      // bucamos todas las plantas de tratamiento descubiertas en nuestro mapa
       for (int r = 0; r < (int)mapaResultado.size(); ++r) {
         for (int c = 0; c < (int)mapaResultado[0].size(); ++c) {
           if (mapaResultado[r][c] == 'U') {
             cantidad_u++;
-            // Calculamos la distancia Manhattan a la Belkanita
+            // calcular la distancia a la Belkanita
             int dist = abs(sensores.BelPosF - r) + abs(sensores.BelPosC - c);
             if (dist < min_dist_u) min_dist_u = dist;
           }
         }
       }
 
-      // Si hemos encontrado al menos una planta
+      // si hemos encontrado al menos una planta
       if (cantidad_u > 0) {
-        
-        // ESTRATEGIA INCONFORMISTA:
-        // Si la planta más cercana está lejos (> 15 casillas) y no hemos explorado
-        // suficiente (< 800 turnos), forzamos a seguir explorando para hallar una mejor.
+        // si la planta + cercana está lejos y no hemos explorado forzamos a seguir explorando para hallar una mejor.
         bool seguir_explorando = (min_dist_u > 15 && turnos_exploracion < 800);
 
         if (!seguir_explorando) {
@@ -1160,7 +1137,7 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores
             planTuberias = PlanificarRedTuberias(sensores.BelPosF, sensores.BelPosC, mapaResultado, mapaCotas, sensores.max_ecologico);
             
             if (!planTuberias.empty()) {
-              // --- EVALUAR IMPACTO ECOLÓGICO EXACTO DEL PLAN ---
+              // EVALUAR IMPACTO ECOLÓGICO EXACTO DEL PLAN 
               int impacto_total = 0;
               for (auto const& paso : planTuberias) {
                 unsigned char sup = mapaResultado[paso.fil][paso.col];
@@ -1171,7 +1148,7 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores
               }
 
               // REGLA DE ACEPTACIÓN FINAL:
-              // Si el impacto es aceptable (< 800) o si ya no hay tiempo para ser exquisitos
+              // si el impacto es aceptable o si ya no hay tiempo 
               if (impacto_total < 800 || turnos_exploracion > 1200) {
                 red_planificada = true;
                 tramo_actual = planTuberias.front();
@@ -1181,12 +1158,12 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores
                 tramo_ant_f = -1;
                 tramo_ant_c = -1;
               } else {
-                // Rechazamos el plan por alto impacto y obligamos a explorar 50 turnos más
+                // rechazr el plan por alto impacto y aexplorar 50 turnos +
                 planTuberias.clear();
                 espera_tecnico = 50; 
               }
             } else {
-              espera_tecnico = 20; // Si A* falla por niebla, exploramos 20 turnos
+              espera_tecnico = 20; // si A* falla por niebla exploramos 20 turnos
             }
           } else {
             espera_tecnico--;
@@ -1195,7 +1172,7 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores
       }
     }
     
-    // Si aún no hemos planificado (o hemos rechazado el plan), seguimos explorando (Nivel 1)
+    // si aun no hemos planificado seguimos explorando 
     if (!red_planificada) {
       Action act = ComportamientoIngenieroNivel_1(sensores);
       last_action = act;
@@ -1203,7 +1180,7 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores
     }
   }
 
-  // --- FASE 2: CONSTRUCCIÓN Y SINCRONIZACIÓN ---
+  // parte 2: CONSTRUCCIÓN + SINCRONIZACIÓN 
   if (sensores.choque && estado_instalacion == 0) {
     if (sensores.agentes[2] == 't') {
       if (last_action != IDLE) plan.push_front(last_action);
@@ -1215,7 +1192,7 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores
     }
   }
 
-  if (estado_instalacion == 0) { // VIAJAR A LA CASILLA DE LA TUBERÍA
+  if (estado_instalacion == 0) { // ir a la tuberia
     if (sensores.posF == tramo_actual.fil && sensores.posC == tramo_actual.col) {
       estado_instalacion = 1; 
     } else {
@@ -1225,7 +1202,7 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores
         plan = B_Anchura(inicio, final, mapaResultado, mapaCotas);
         
         if (plan.empty()) { 
-          // Si nos quedamos bloqueados, giramos para descubrir mapa local
+          // si bloqueo, girar 
           last_action = TURN_SR;
           return TURN_SR; 
         } else {
@@ -1255,7 +1232,7 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores
     estado_instalacion = 2; 
   }
 
-  if (estado_instalacion == 2) { // MIRAR A LA POSICIÓN DEL TÉCNICO Y GRITAR
+  if (estado_instalacion == 2) { // mir pos tec y gritar 
     if (tramo_ant_f != -1) {
       pos_tecnico.f = tramo_ant_f; 
       pos_tecnico.c = tramo_ant_c;
@@ -1278,12 +1255,12 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores
         return COME; 
       }
     } else {
-      last_action = TURN_SR; // Si está rodeado de '?', gira para mapear
+      last_action = TURN_SR; // si está rodeado de ? gira para mapear
       return TURN_SR; 
     }
   }
 
-  if (estado_instalacion == 3) { // ESPERAR AL TÉCNICO E INSTALAR
+  if (estado_instalacion == 3) { // esperar al tec e instalar
     if (sensores.agentes[2] == 't' && sensores.enfrente) {
       tramo_ant_f = tramo_actual.fil; 
       tramo_ant_c = tramo_actual.col;
@@ -1299,7 +1276,6 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores
       return INSTALL; 
     }
     
-    // REGLA DE ORO: Seguir gritando COME para mantener al técnico sincronizado (coste 0)
     last_action = COME;
     return COME; 
   }

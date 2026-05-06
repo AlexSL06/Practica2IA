@@ -1084,43 +1084,44 @@ Action ComportamientoTecnico::ComportamientoTecnicoNivel_6(Sensores sensores)
   ActualizarMapa(sensores);
   if (sensores.superficie[0] == 'D') tiene_zapatillas = true;
 
-  // --- ESCUCHAR LA ORDEN DEL INGENIERO ---
+  // orden ingeniero
   if (sensores.venpaca) {
-    // Si el ingeniero nos llama, actualizamos el objetivo inmediatamente
     ing_f_actual = sensores.GotoF;
     ing_c_actual = sensores.GotoC;
 
-    // El Técnico no necesita planificar la red. Simplemente busca una casilla adyacente
-    // válida respecto a la posición que le dicta el Ingeniero.
     if (tramo_ant_f != -1) {
       pos_objetivo_actual.f = tramo_ant_f;
       pos_objetivo_actual.c = tramo_ant_c;
     } else {
-      // Pasamos -1, -1 como siguiente tubería porque el técnico ignora ese dato
       pos_objetivo_actual = ElegirPosicionParaTecnico(ing_f_actual, ing_c_actual, -1, -1, mapaResultado, mapaCotas);
     }
     
-    if (pos_objetivo_actual.f != -1) {
-      estado_asistencia = 1;
-      plan.clear();
-      hayPlan = false;
+    // si no conocemos la zona ? vamos hacia el ingeniero
+    if (pos_objetivo_actual.f == -1) {
+      pos_objetivo_actual.f = ing_f_actual;
+      pos_objetivo_actual.c = ing_c_actual;
     }
+    
+    estado_asistencia = 1;
+    plan.clear();
+    hayPlan = false;
   }
 
-  // --- ESTADO 0: ESTATUA / EXPLORADOR ---
+
+  // estado 0: EXPLORADOR 
   if (estado_asistencia == 0) { 
-    // Solo explora libremente si NUNCA ha participado en la obra aún
+    // Solo explora si no ha participado en la tuberia
     if (tramo_ant_f == -1) {
       return ComportamientoTecnicoNivel_1(sensores);
     }
-    // Si ya es parte de la obra, debe quedarse totalmente quieto esperando órdenes
+    // si ya es parte se queda quito
     return IDLE; 
   }
 
-  // --- GESTIÓN DE COLISIONES ---
+  // colisones
   if (sensores.choque && estado_asistencia == 1) {
     if (sensores.agentes[2] == 'i') {
-      // Si nos chocamos con el ingeniero, esperamos.
+      // si nos chocamos con el ingeniero, esperamos.
       if (last_action != IDLE) plan.push_front(last_action);
       return IDLE;
     } else {
@@ -1131,9 +1132,16 @@ Action ComportamientoTecnico::ComportamientoTecnicoNivel_6(Sensores sensores)
     }
   }
 
-  // --- ESTADO 1: VIAJAR HACIA EL INGENIERO ---
+  // estado 1 IR HACIA EL INGENIERO 
   if (estado_asistencia == 1) { 
-    if (sensores.posF == pos_objetivo_actual.f && sensores.posC == pos_objetivo_actual.c) {
+    // Calculamos la distancia Manhattan
+    int dist = abs(sensores.posF - pos_objetivo_actual.f) + abs(sensores.posC - pos_objetivo_actual.c);
+    
+    // comprobar si hemos llegado a la casilla exacta 
+    bool objetivo_alcanzado = (sensores.posF == pos_objetivo_actual.f && sensores.posC == pos_objetivo_actual.c);
+    bool cerca_del_ingeniero = (dist <= 1 && pos_objetivo_actual.f == ing_f_actual && pos_objetivo_actual.c == ing_c_actual);
+
+    if (objetivo_alcanzado || cerca_del_ingeniero) {
       estado_asistencia = 2;
       casillas_bloqueadas.clear();
     } else {
@@ -1143,8 +1151,6 @@ Action ComportamientoTecnico::ComportamientoTecnicoNivel_6(Sensores sensores)
         plan = A_Estrella(inicio, final, mapaResultado, mapaCotas);
         
         if (plan.empty()) {
-          // TÁCTICA ANTI-NIEBLA: Si A* falla, giramos a la derecha. 
-          // Esto revela las casillas '?' de los lados y casi siempre desbloquea el A* en el siguiente turno.
           return TURN_SR; 
         } else {
           hayPlan = true;
@@ -1160,7 +1166,7 @@ Action ComportamientoTecnico::ComportamientoTecnicoNivel_6(Sensores sensores)
     }
   }
 
-  // --- ESTADO 2: GIRAR Y SINCRONIZAR INSTALL ---
+  // estado 2: GIRAR Y SINCRONIZAR INSTALL 
   if (estado_asistencia == 2) { 
     ubicacion mi_pos = {sensores.posF, sensores.posC, sensores.rumbo};
     ubicacion pos_ing = {ing_f_actual, ing_c_actual, norte}; 
@@ -1171,15 +1177,15 @@ Action ComportamientoTecnico::ComportamientoTecnicoNivel_6(Sensores sensores)
       return last_action;
     }
     
-    // Si estamos mirando al ingeniero y él nos mira a nosotros (sensor enfrente activo)
+    // si estamos mirando al ingeniero y él nos mira a nosotros 
     if (sensores.enfrente) {
-      estado_asistencia = 0; // Vuelve al estado quieto.
+      estado_asistencia = 0; // vuelve a estado quieto.
       tramo_ant_f = ing_f_actual;
       tramo_ant_c = ing_c_actual;
       last_action = INSTALL;
       return INSTALL;        
     }
-    // Si el ingeniero aún no está mirando, nos quedamos parados esperando pacientemente
+    // si el ingeniero aún no está mirando esperamos 
     return IDLE; 
   }
 
