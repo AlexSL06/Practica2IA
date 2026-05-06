@@ -732,32 +732,26 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_2(Sensores sensores
 //NIVEL 3
 /////////////////////////////////////////////////////////
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_3(Sensores sensores) { return IDLE; }
+
 ///////////////////////////////////////////////////////////////////////
 // NIVEL 4
 ///////////////////////////////////////////////////////////////////////
-/**
- * @brief Evalúa si es posible colocar una tubería en una casilla adyacente.
- * @param actual El estado (f, c, op) de la tubería de la que partimos.
- * @param sig_fila La fila de la casilla adyacente ortogonal a evaluar.
- * @param sig_col La columna de la casilla adyacente ortogonal a evaluar.
- * @param sig_op La operación (-1, 0, 1) que INTENTAMOS aplicar en la casilla adyacente.
- * @param terreno Mapa superficial para comprobar obstáculos y agua.
- * @param altura Mapa de cotas.
- * @return true si se cumplen TODAS las reglas: límites, gravedad y restricciones de terreno.
- */
-
-bool ComportamientoIngeniero::TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const
-{
+bool ComportamientoIngeniero::TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const{
   if (sig_fila < 0 || sig_fila >= terreno.size() || sig_col < 0 || sig_col >= terreno[0].size())
     return false;
     
   unsigned char sup = terreno[sig_fila][sig_col];
   
-  if (sup == 'P' || sup == 'M' || sup == '?') // ? es para el nivel 6
+  if (sup == 'P' || sup == 'M' || sup == '?')
     return false;
+
+  int altura_original = altura[sig_fila][sig_col];
+
+  if (sig_op == 1 && altura_original >= 9) return false;
+  if (sig_op == -1 && altura_original <= 1) return false;
     
   int altura_tuberia_actual = altura[actual.fila][actual.columna] + actual.op;
-  int altura_tuberia_siguiente = altura[sig_fila][sig_col] + sig_op;
+  int altura_tuberia_siguiente = altura_original + sig_op;
   
   if (altura_tuberia_siguiente != altura_tuberia_actual && altura_tuberia_siguiente != (altura_tuberia_actual - 1))
     return false;
@@ -767,39 +761,27 @@ bool ComportamientoIngeniero::TramoTuberiaValido(const EstadoTuberia &actual, in
     
   return true;
 }
-
-/**
- * @brief Algoritmo de búsqueda (BFS) para encontrar la red de tuberías.
- * Explora en 4 direcciones ortogonales. Para cada dirección, intenta aplicar
- * los 3 valores posibles de 'op' (-1, 0, 1), generando hasta 12 posibles hijos por nodo.
- * @param inicioF Fila donde está la Belkanita.
- * @param inicioC Columna donde está la Belkanita.
- * @param terreno Mapa superficial.
- * @param altura Mapa de cotas.
- * @return Una lista de struct 'Paso' con las coordenadas y operaciones de la red.
- */
-list<Paso> ComportamientoIngeniero::PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura)
-{
-  // CAMBIO: Usamos priority_queue para minimizar el impacto ecológico
+list<Paso> ComportamientoIngeniero::PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura, int max_ecologico){
   priority_queue<NodoTuberia> frontier;
-  map<EstadoTuberia, int> explored; // Ahora guarda el costo mínimo con el que se llegó
+  map<EstadoTuberia, int> explored; 
   int operaciones[3] = {-1, 0, 1};
 
-  // Casilla origen
   for (int j = 0; j < 3; j++)
   {
     int o = operaciones[j];
+    if (terreno[inicioF][inicioC] == 'A' && o != 0) continue;
 
-    // Si es agua, solo operación 0
-    if (terreno[inicioF][inicioC] == 'A' && o != 0)
-      continue;
+    int altura_orig = altura[inicioF][inicioC];
+    if (o == 1 && altura_orig >= 9) continue;
+    if (o == -1 && altura_orig <= 1) continue;
 
     EstadoTuberia e_ini = {inicioF, inicioC, o};
     NodoTuberia n_ini;
     n_ini.estado = e_ini;
     n_ini.secuencia.push_back({inicioF, inicioC, o});
+    n_ini.pasos = 1; // iniciar pasos
 
-    // --- CÁLCULO DE IMPACTO INICIAL SEGÚN PDF ---
+    // calculo impacto inicial
     int costo = 0;
     unsigned char sup = terreno[inicioF][inicioC];
     if (sup == 'A') costo = 50;
@@ -808,12 +790,12 @@ list<Paso> ComportamientoIngeniero::PlanificarRedTuberias(int inicioF, int inici
     else if (sup == 'C' || sup == 'U' || sup == 'D' || sup == 'X') costo = 15;
     else costo = 30; 
 
-    if (o == 1) { // RAISE
+    if (o == 1) { 
       if (sup == 'H') costo += 55;
       else if (sup == 'S') costo += 30;
       else if (sup == 'C' || sup == 'U' || sup == 'D' || sup == 'X') costo += 10;
       else costo += 40;
-    } else if (o == -1) { // DIG
+    } else if (o == -1) { 
       if (sup == 'H') costo += 65;
       else if (sup == 'S') costo += 40;
       else if (sup == 'C' || sup == 'U' || sup == 'D' || sup == 'X') costo += 25;
@@ -822,8 +804,10 @@ list<Paso> ComportamientoIngeniero::PlanificarRedTuberias(int inicioF, int inici
     
     n_ini.costo = costo;
 
-    frontier.push(n_ini);
-    explored[e_ini] = costo;
+    if (n_ini.costo <= max_ecologico) {
+      frontier.push(n_ini);
+      explored[e_ini] = costo;
+    }
   }
 
   int posF[4] = {0, -1, 1, 0};
@@ -836,17 +820,13 @@ list<Paso> ComportamientoIngeniero::PlanificarRedTuberias(int inicioF, int inici
 
     EstadoTuberia actual = nodoActual.estado;
 
-    // Al usar priority_queue, la primera meta que sacamos es GARANTIZADO 
-    // la de menor impacto ecológico de todo el mapa.
     if (terreno[actual.fila][actual.columna] == 'U')
     {
       return nodoActual.secuencia;
     }
 
-    // Si ya habíamos encontrado un camino más barato a este estado, lo ignoramos
     if (explored[actual] < nodoActual.costo) continue;
 
-    // Generamos hijos en las 4 direcciones
     for (int dir = 0; dir < 4; dir++)
     {
       int sig_fila = actual.fila + posF[dir];
@@ -860,7 +840,7 @@ list<Paso> ComportamientoIngeniero::PlanificarRedTuberias(int inicioF, int inici
         {
           EstadoTuberia estado_hijo = {sig_fila, sig_col, sig_op};
 
-          // --- CÁLCULO DE IMPACTO DEL TRAMO SEGÚN PDF ---
+          // calculo del coste del tramo
           int costo_tramo = 0;
           unsigned char sup = terreno[sig_fila][sig_col];
           if (sup == 'A') costo_tramo = 50;
@@ -881,10 +861,12 @@ list<Paso> ComportamientoIngeniero::PlanificarRedTuberias(int inicioF, int inici
             else costo_tramo += 50;
           }
 
-          // +1 sirve como desempatador para preferir caminos más cortos si el impacto es el mismo
-          int nuevo_costo = nodoActual.costo + costo_tramo + 1;
+          int nuevo_costo = nodoActual.costo + costo_tramo;
 
-          // Si nunca hemos visitado el nodo, o si hemos encontrado una ruta de MENOR IMPACTO
+          // limite ecológico del nivel
+          if (nuevo_costo > max_ecologico) continue;
+
+          // guardar estado si es la primera vez, o si llegamos con un impacto <.
           if (explored.find(estado_hijo) == explored.end() || nuevo_costo < explored[estado_hijo])
           {
             explored[estado_hijo] = nuevo_costo;
@@ -894,6 +876,7 @@ list<Paso> ComportamientoIngeniero::PlanificarRedTuberias(int inicioF, int inici
             hijo.secuencia = nodoActual.secuencia;
             hijo.secuencia.push_back({sig_fila, sig_col, sig_op});
             hijo.costo = nuevo_costo;
+            hijo.pasos = nodoActual.pasos + 1; // + un paso
 
             frontier.push(hijo);
           }
@@ -901,8 +884,6 @@ list<Paso> ComportamientoIngeniero::PlanificarRedTuberias(int inicioF, int inici
       }
     }
   }
-
-  // Si no hay camino
   return std::list<Paso>();
 }
 Action ComportamientoIngeniero::ComportamientoIngenieroNivel_4(Sensores sensores)
@@ -910,16 +891,16 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_4(Sensores sensores
   if (!hayPlan)
   {
     // Hacemos la llamada solo 1 vez para no gastar CPU a lo tonto
-    planTuberias = PlanificarRedTuberias(sensores.BelPosF, sensores.BelPosC, mapaResultado, mapaCotas);
+    planTuberias = PlanificarRedTuberias(sensores.BelPosF, sensores.BelPosC, mapaResultado, mapaCotas, sensores.max_ecologico);    
     VisualizaRedTuberias(planTuberias);
     hayPlan = true;
   }
   return IDLE;
 }
+
 ///////////////////////////////////////////////////////////////////////
 // NIVEL 5
 ///////////////////////////////////////////////////////////////////////
-
 Action ComportamientoIngeniero::OrientarseHacia(Orientacion actual, Orientacion objetivo) const
 {
   if (actual == objetivo)
@@ -995,7 +976,7 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_5(Sensores sensores
 
   // INICIALIZACIÓN: Planificamos la red solo una vez al inicio
   if (!red_planificada) {
-    planTuberias = PlanificarRedTuberias(sensores.BelPosF, sensores.BelPosC, mapaResultado, mapaCotas);
+    planTuberias = PlanificarRedTuberias(sensores.BelPosF, sensores.BelPosC, mapaResultado, mapaCotas, sensores.max_ecologico);
     red_planificada = true; // ¡Marcamos que ya hemos planificado!
     
     if (planTuberias.empty()) {
@@ -1177,7 +1158,7 @@ Action ComportamientoIngeniero::ComportamientoIngenieroNivel_6(Sensores sensores
 
         if (!seguir_explorando) {
           if (espera_tecnico <= 0) {
-            planTuberias = PlanificarRedTuberias(sensores.BelPosF, sensores.BelPosC, mapaResultado, mapaCotas);
+            planTuberias = PlanificarRedTuberias(sensores.BelPosF, sensores.BelPosC, mapaResultado, mapaCotas, sensores.max_ecologico);
             
             if (!planTuberias.empty()) {
               // --- EVALUAR IMPACTO ECOLÓGICO EXACTO DEL PLAN ---

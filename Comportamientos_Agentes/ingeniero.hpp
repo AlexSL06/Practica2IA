@@ -10,20 +10,17 @@
 
 #include "comportamientos/comportamiento.hpp"
 
-// Estructura para definir el estado del Ingeniero
 struct EstadoI {
   int fila;
   int columna;
   Orientacion orientacion;
   bool zapatillas;
 
-  // Operador de igualdad para comparar estados
   bool operator==(const EstadoI &st) const {
     return (fila == st.fila && columna == st.columna && 
             orientacion == st.orientacion && zapatillas == st.zapatillas);
   }
 
-  // Operador de orden para poder usar std::set (lista de Explorados)
   bool operator<(const EstadoI &st) const {
     if (fila < st.fila) return true;
     else if (fila == st.fila && columna < st.columna) return true;
@@ -33,7 +30,6 @@ struct EstadoI {
   }
 };
 
-// Estructura para el Nodo del árbol de búsqueda
 struct NodoI {
   EstadoI estado;
   std::list<Action> secuencia;
@@ -46,12 +42,11 @@ struct NodoI {
   }
 };
 
-  struct EstadoTuberia {
+struct EstadoTuberia {
     int fila;
     int columna;
-    int op; // Operación aplicada: -1 (DIG), 0 (Nada), 1 (RAISE)
+    int op; // operacion aplicada -1 (DIG), 0 (nada), 1 (RAISE)
 
-    // Operador necesario para guardar en 'explored' (set o map)
     bool operator<(const EstadoTuberia &st) const {
       if (fila < st.fila) return true;
       else if (fila == st.fila && columna < st.columna) return true;
@@ -63,17 +58,18 @@ struct NodoI {
     }
   };
 
-  // Nodo para el árbol de búsqueda
 struct NodoTuberia {
-    EstadoTuberia estado;
-    std::list<Paso> secuencia; 
-    int costo; // NUEVO: Acumulador de impacto ecológico
-    
-    // Operador para la cola de prioridad (el de MENOR costo sale primero)
-    bool operator<(const NodoTuberia &otro) const {
-      return costo > otro.costo;
-    }
-  };
+  EstadoTuberia estado;
+  std::list<Paso> secuencia; 
+  int costo; // impacto ecológico
+  int pasos; // long del plan
+  
+  bool operator<(const NodoTuberia &otro) const {
+    if (pasos != otro.pasos) 
+        return pasos > otro.pasos; 
+    return costo > otro.costo;     
+  }
+};
 
 
 class ComportamientoIngeniero : public Comportamiento {
@@ -318,24 +314,26 @@ private:
   int turnos_exploracion; 
 
   ubicacion ElegirPosicionParaTecnico(int fila_ing, int col_ing, int fila_sig, int col_sig, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
-  // =========================================================================
-  // FUNCIONES PARA EL NIVEL 2
-  // =========================================================================
+  /////////////////////////////////////////////////////////
+  //NIVEL 2 
+  /////////////////////////////////////////////////////////
   EstadoI NextCasillaIngeniero(const EstadoI &st) const;
   bool CasillaAccesibleIngeniero(const EstadoI &st, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
   bool CasillaAccesibleJumpIngeniero(const EstadoI &st, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
   EstadoI applyI(Action accion, const EstadoI &st, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
   list<Action> B_Anchura(const EstadoI &inicio, const EstadoI &final, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
-
-  // =========================================================================
-  // FUNCIONES PARA EL NIVEL 4
-  // =========================================================================
+  
+  /////////////////////////////////////////////////////////
+  //NIVEL 4
+  /////////////////////////////////////////////////////////
   bool TramoTuberiaValido(const EstadoTuberia &actual, int sig_fila, int sig_col, int sig_op, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
-  std::list<Paso> PlanificarRedTuberias(int inicioF, int inicioC, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura);
-
-  // =========================================================================
-  // FUNCIONES PARA EL NIVEL 5
-  // =========================================================================
+  std::list<Paso> PlanificarRedTuberias(int inicioF, int inicioC, 
+                                      const std::vector<std::vector<unsigned char>> &terreno, 
+                                      const std::vector<std::vector<unsigned char>> &altura, 
+                                      int max_ecologico);
+  /////////////////////////////////////////////////////////
+  //NIVEL 5
+  /////////////////////////////////////////////////////////
   ubicacion ElegirPosicionParaTecnico(const EstadoI &st_ingeniero, const std::vector<std::vector<unsigned char>> &terreno, const std::vector<std::vector<unsigned char>> &altura) const;
   Action OrientarseHacia(Orientacion actual, Orientacion objetivo) const;
   Orientacion ObtenerOrientacionOrtogonal(const ubicacion &origen, const ubicacion &destino) const;
